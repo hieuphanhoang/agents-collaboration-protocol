@@ -49,11 +49,9 @@ uv run --no-project scripts/handoff.py init --root /path/to/repo
 
 That writes `.handoff/PROTOCOL.md`, `.handoff/CHATLOG.md`,
 `.handoff/ROSTER.md`, `.handoff/chat_logs/`, the CLI at `.handoff/handoff.py`,
-and an `AGENTS.md` pointer section. It is idempotent. (A repo with an
-existing `.agents/` or `.claude/handoff/` install keeps using it - `init`
-and every command auto-detect before falling back to the `.handoff/`
-default; `--state-dir .agents` or `--state-dir .claude` still work as
-explicit choices for a new install too.)
+and an `AGENTS.md` pointer section. It is idempotent. `--state-dir <path>`
+picks a different name if `.handoff/` doesn't suit a project - pass it on
+every later command too, since only `.handoff/` is looked for automatically.
 
 Then fill in `.handoff/ROSTER.md` - who the members are and **which directories
 each one owns**. Ownership is the load-bearing part; everything else is

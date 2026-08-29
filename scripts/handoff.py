@@ -106,24 +106,26 @@ def digest(path):
 
 
 def state_name(root, requested=None):
-    if requested:
-        parts = re.split(r"[\\/]+", requested)
-        posix = pathlib.PurePosixPath(requested)
-        win = pathlib.PureWindowsPath(requested)
-        if posix.is_absolute() or win.is_absolute() or win.drive or ".." in parts:
-            sys.exit(f"unsafe state dir '{requested}' - use a safe relative path")
-        clean = "/".join(part for part in parts if part and part != ".")
-        if not clean:
-            sys.exit(f"unsafe state dir '{requested}' - use a safe relative path")
-        if clean == ".claude/handoff":
-            return clean
-        return ".claude/handoff" if clean == ".claude" else clean
-    installed = [".handoff", ".agents", ".claude/handoff"]
-    for name in installed:
-        p = root / name
-        if (p / "CHATLOG.md").exists() or (p / "PROTOCOL.md").exists():
-            return name
-    return DEFAULT_STATE_DIR
+    """
+    The state directory name: DEFAULT_STATE_DIR unless overridden.
+
+    No directory name gets special treatment - not even `.handoff` itself,
+    which is just the default value, not a case this function branches on.
+    A project that wants a different name passes --state-dir explicitly on
+    every command; there is nothing to auto-detect, because there is only
+    ever one directory this tool would have chosen on its own.
+    """
+    if not requested:
+        return DEFAULT_STATE_DIR
+    parts = re.split(r"[\\/]+", requested)
+    posix = pathlib.PurePosixPath(requested)
+    win = pathlib.PureWindowsPath(requested)
+    if posix.is_absolute() or win.is_absolute() or win.drive or ".." in parts:
+        sys.exit(f"unsafe state dir '{requested}' - use a safe relative path")
+    clean = "/".join(part for part in parts if part and part != ".")
+    if not clean:
+        sys.exit(f"unsafe state dir '{requested}' - use a safe relative path")
+    return clean
 
 
 def state_dir(root, requested=None):
@@ -147,8 +149,9 @@ def state_rel(root, requested=None):
 
 
 def render_state_text(text, state):
-    """Templates are written with .agents placeholders for legacy state paths."""
-    return text.replace(".agents", state)
+    """Templates are written with .handoff as a literal placeholder - swap
+    it for the actual state name, a no-op unless --state-dir overrode it."""
+    return text.replace(".handoff", state)
 
 
 def resolve_years(stamps, base):
@@ -970,8 +973,8 @@ def main():
     common.add_argument("--root", default=argparse.SUPPRESS,
                         help="repo root (default: cwd), accepted before or after the subcommand")
     common.add_argument("--state-dir", default=argparse.SUPPRESS,
-                        help="handoff state folder, .handoff by default; explicit .agents "
-                             "works; .claude means .claude/handoff; custom values must be relative")
+                        help="handoff state folder, .handoff by default; "
+                             "any other safe relative path overrides it")
     p = argparse.ArgumentParser(prog="handoff", description=__doc__, parents=[common],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)

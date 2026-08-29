@@ -26,7 +26,7 @@ everyone else's work. Before anything else, settle with the owner:
   the current profiles and a routing table. Read it before you carve, not after
   the first collision.
 
-Record it in `.agents/ROSTER.md`, then open an `AGENT-` thread introducing them
+Record it in `.handoff/ROSTER.md`, then open an `AGENT-` thread introducing them
 so the existing members learn the new boundary from the log rather than from a
 collision.
 
@@ -36,13 +36,13 @@ collision.
 
 What a new member needs, in this order:
 
-1. `.agents/ROSTER.md` - who exists, who owns what
-2. `.agents/PROTOCOL.md` - how the log works
+1. `.handoff/ROSTER.md` - who exists, who owns what
+2. `.handoff/PROTOCOL.md` - how the log works
 3. The specification or contract - what is being built
 4. Open threads - what is live right now
 
 Members with repo access read those directly. Point their instruction file at
-`.agents/PROTOCOL.md` - agents follow the file their harness loads, and a
+`.handoff/PROTOCOL.md` - agents follow the file their harness loads, and a
 protocol nobody is told to read is ignored.
 
 | Provider | Instruction file it reads |
@@ -76,8 +76,9 @@ rules and blaming each other for it.
 
 A short section is enough - who they are, what they own, and "read
 `PROTOCOL.md` in the state directory before writing to the log." The state
-directory is `.agents/` unless the project chose `.claude/`; the registration
-`init` wrote names which one, so a new member never has to guess.
+directory is `.handoff/` unless the project chose something else with
+`--state-dir`; the registration `init` wrote names which one, so a new
+member never has to guess.
 
 ---
 
@@ -153,7 +154,7 @@ Instead:
 
 - Mark their open threads `superseded` or `closed`, with a comment saying where
   the work went.
-- Reassign their directories in `.agents/ROSTER.md`.
+- Reassign their directories in `.handoff/ROSTER.md`.
 - Note the handover in an `AGENT-` thread so the remaining members know what
   they have inherited and what state it is in.
 

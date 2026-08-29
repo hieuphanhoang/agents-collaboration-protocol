@@ -11,7 +11,7 @@ observed in this repo over anything written here.
 
 ## 1 - The protocol allocates territory, not tasks
 
-`.agents/ROSTER.md` gives each member directories, not job descriptions. A
+`.handoff/ROSTER.md` gives each member directories, not job descriptions. A
 strength only becomes an assignment when it maps onto a place in the tree.
 "Codex is good at tests" is not an assignment; "Codex owns `tests/` and `ci/`"
 is.
@@ -24,7 +24,7 @@ Two things follow:
   and hope.
 - **A member's failure mode matters as much as its strength**, because the
   boundary rule is what contains it. An agent that tends to edit adjacent files
-  it was not asked to touch is exactly what section 2 of `.agents/PROTOCOL.md`
+  it was not asked to touch is exactly what section 2 of `.handoff/PROTOCOL.md`
   exists for. Give that member a territory with few cross-cutting dependencies
   and its failure mode becomes a rejected diff instead of a silent regression.
 
@@ -110,9 +110,9 @@ Two things follow:
   tool here for moment-to-moment editing.
 - **Weak at / watch for:** it is not really a peer member. It is the owner's
   hands.
-- **Therefore:** list it in `.agents/ROSTER.md` as how the owner edits, not as a
+- **Therefore:** list it in `.handoff/ROSTER.md` as how the owner edits, not as a
   member with its own territory. This matters to the protocol: section 6 of
-  `.agents/PROTOCOL.md` says never assume the log contains only your own
+  `.handoff/PROTOCOL.md` says never assume the log contains only your own
   writing, and Cursor is the most likely reason that is true. Re-read before
   writing, and expect `handoff.py reply` to refuse when a file changed
   underneath you.
@@ -166,7 +166,7 @@ date and say what changed it - a release, or something you watched happen in
 this repo.
 
 **Where a profile and the roster disagree, the roster wins.** These profiles are
-assembled from public reporting; `.agents/ROSTER.md`'s "usual failure to watch
+assembled from public reporting; `.handoff/ROSTER.md`'s "usual failure to watch
 for" column is assembled from what this team has actually seen. Observed beats
 reported, every time - the same rule the log applies to the owner's words.
 

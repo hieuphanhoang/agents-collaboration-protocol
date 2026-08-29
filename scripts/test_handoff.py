@@ -156,28 +156,6 @@ def t_init_registers_existing_instruction_files_once():
         shutil.rmtree(d, ignore_errors=True)
 
 
-def t_init_can_use_claude_state_dir():
-    d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-claude-state-"))
-    try:
-        run(d, "init", "--state-dir", ".claude")
-        check("init can write state under .claude/handoff",
-              meta(d, "CHATLOG.md", ".claude/handoff").is_file())
-        check(".claude init does not also create .agents", not (d / ".agents").exists())
-        check("bare .claude init creates no root AGENTS.md", not (d / "AGENTS.md").exists())
-        (d / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
-        run(d, "init", "--state-dir", ".claude")
-        cl = (d / "CLAUDE.md").read_text(encoding="utf-8")
-        check("registration points at .claude/handoff/PROTOCOL.md",
-              ".claude/handoff/PROTOCOL.md" in cl)
-        check("registration names .claude/handoff/handoff.py",
-              ".claude/handoff/handoff.py" in cl)
-        run(d, "new", "Claude state", "--frm", "Opus", "--to", "Codex", "--body", "x")
-        check("later commands auto-detect .claude state",
-              bool(list(logs(d, ".claude/handoff").glob("AGENT-001-*.md"))))
-    finally:
-        shutil.rmtree(d, ignore_errors=True)
-
-
 def t_init_can_use_custom_state_dir():
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-custom-state-"))
     custom = ".team-handoff"
@@ -224,55 +202,35 @@ def t_state_dir_rejects_unsafe_paths():
         shutil.rmtree(d, ignore_errors=True)
 
 
-def t_init_uses_existing_state_directory_rules():
-    d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-state-rules-"))
+def t_init_ignores_vendor_directories():
+    """
+    .claude/ and .agents/ get no special treatment - not even avoidance logic.
+
+    init always writes .handoff/ and never reads or writes anything under a
+    vendor directory. This is a narrower claim than the old special-casing
+    tests made (there is no more branching on these names to test), but the
+    one thing worth a permanent regression guard is that init never touches
+    another tool's own files sitting in a directory that happens to share a
+    dot-prefix convention.
+    """
+    d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-vendor-dirs-"))
     try:
-        claude_only = d / "claude-only"
-        claude_only.mkdir()
-        (claude_only / ".claude").mkdir()
-        (claude_only / ".claude" / "settings.json").write_text("{}", encoding="utf-8")
-        (claude_only / ".claude" / "commands").mkdir()
-        (claude_only / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
-        run(claude_only, "init")
-        check("fresh init ignores bare .claude and uses .handoff",
-              (claude_only / ".handoff" / "CHATLOG.md").is_file()
-              and not (claude_only / ".claude" / "handoff" / "CHATLOG.md").exists())
-        check("Claude config file is untouched",
-              (claude_only / ".claude" / "settings.json").read_text(encoding="utf-8") == "{}")
-        check("Claude commands directory is untouched",
-              (claude_only / ".claude" / "commands").is_dir())
-        check("nothing lands directly in .claude",
-              not (claude_only / ".claude" / "CHATLOG.md").exists())
-        cl = (claude_only / "CLAUDE.md").read_text(encoding="utf-8")
-        check("CLAUDE.md names the default handoff state", ".handoff/" in cl)
-
-        both = d / "both"
-        both.mkdir()
-        (both / ".agents").mkdir()
-        (both / ".claude").mkdir()
-        (both / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
-        (both / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
-        run(both, "init")
-        check("empty vendor directories use .handoff and register instructions",
-              (both / ".handoff" / "CHATLOG.md").is_file()
-              and not (both / ".agents" / "CHATLOG.md").exists()
-              and not (both / ".claude" / "handoff" / "CHATLOG.md").exists()
-              and ".handoff/PROTOCOL.md" in (both / "AGENTS.md").read_text(encoding="utf-8")
-              and ".handoff/PROTOCOL.md" in (both / "CLAUDE.md").read_text(encoding="utf-8"))
-
-        legacy_agents = d / "legacy-agents"
-        legacy_agents.mkdir()
-        run(legacy_agents, "init", "--state-dir", ".agents")
-        legacy_claude = d / "legacy-claude"
-        legacy_claude.mkdir()
-        run(legacy_claude, "init", "--state-dir", ".claude")
-        run(legacy_agents, "new", "Legacy agents", "--frm", "Opus",
-            "--to", "Codex", "--body", "x")
-        run(legacy_claude, "new", "Legacy claude", "--frm", "Opus",
-            "--to", "Codex", "--body", "x")
-        check("installed legacy states are still auto-detected",
-              bool(list(logs(legacy_agents, ".agents").glob("AGENT-001-*.md")))
-              and bool(list(logs(legacy_claude, ".claude/handoff").glob("AGENT-001-*.md"))))
+        (d / ".claude").mkdir()
+        (d / ".claude" / "settings.json").write_text("{}", encoding="utf-8")
+        (d / ".claude" / "commands").mkdir()
+        (d / ".agents").mkdir()
+        (d / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
+        run(d, "init")
+        check("init uses .handoff regardless of .claude/.agents being present",
+              (d / ".handoff" / "CHATLOG.md").is_file())
+        check("nothing is written into .claude", not (d / ".claude" / "CHATLOG.md").exists())
+        check("nothing is written into .agents", not (d / ".agents" / "CHATLOG.md").exists())
+        check("an unrelated file already in .claude is untouched",
+              (d / ".claude" / "settings.json").read_text(encoding="utf-8") == "{}")
+        check("an unrelated directory already in .claude is untouched",
+              (d / ".claude" / "commands").is_dir())
+        cl = (d / "CLAUDE.md").read_text(encoding="utf-8")
+        check("CLAUDE.md registration names .handoff", ".handoff/" in cl)
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -1103,9 +1061,8 @@ def run_all():
     print("agent-handoff regression suite\n")
     for fn in (t_init, t_init_ships_the_tool,
                t_init_registers_existing_instruction_files_once,
-               t_init_can_use_claude_state_dir,
                t_init_can_use_custom_state_dir, t_state_dir_rejects_unsafe_paths,
-               t_init_uses_existing_state_directory_rules, t_init_needs_the_skill_folder,
+               t_init_ignores_vendor_directories, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
                t_summary, t_waiting_alias,
                t_close_missing_promotion_refuses_without_write,

@@ -11,8 +11,8 @@ the same file can still hand you a merge conflict, a lost commit, or a branch
 nobody can land.
 
 Paths below are written `<state>/`. That is your project's handoff state
-directory - `.agents/` normally, or `.claude/handoff/` in a project organised
-around `.claude/`. The registration `init` wrote into `AGENTS.md` or `CLAUDE.md`
+directory - `.handoff/` unless the project chose something else with
+`--state-dir`. The registration `init` wrote into `AGENTS.md` or `CLAUDE.md`
 names which one, and `handoff.py summary` prints it. Substitute it mentally
 wherever `<state>` appears.
 
