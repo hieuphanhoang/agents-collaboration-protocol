@@ -32,13 +32,28 @@ session.
 
 ## Install
 
-Clone, then point your agent harness at it. For Claude Code:
+Fastest, via the [skills CLI](https://github.com/vercel-labs/skills) - this
+repo has `SKILL.md` at its root with no `skills/` subfolder, so the whole
+repo installs as one skill:
 
 ```bash
-git clone <this repo> ~/.agents/skills/agent-handoff
+npx skills add hieuphanhoang/agent-handoff
 ```
 
-The skill is self-contained and stdlib-only. No dependencies, no build step.
+Project-local by default; add `-g` to install to your home directory
+instead, or `-a <agent>` to target a specific harness (`-a claude-code`
+installs to `.claude/skills/`, others to `.agents/skills/`). Verified this
+actually works end to end before writing it down. See the skills CLI's own
+`--help` for the rest.
+
+Or clone it directly and point your agent harness at it yourself:
+
+```bash
+git clone https://github.com/hieuphanhoang/agent-handoff ~/.agents/skills/agent-handoff
+```
+
+Either way, the skill is self-contained and stdlib-only. No dependencies,
+no build step.
 
 ## Quickstart
 
