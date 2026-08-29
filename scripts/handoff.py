@@ -14,6 +14,7 @@ Stdlib only. Works on Windows, macOS, Linux.
   close   close a thread after promoted files pass existence and recency checks
   sync    regenerate the handoff CHATLOG.md index blocks from chat_logs/
   summary print what is waiting right now, for a member arriving cold
+  waiting alias for 'summary <member>' - what is waiting on you
   brief   emit a paste-ready briefing for a member with no file access
   doctor  check the log for integrity problems
   test    run the built-in regression suite
