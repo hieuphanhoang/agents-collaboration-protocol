@@ -686,11 +686,12 @@ def cmd_brief(a):
            "You have no direct access to this repository. Read this, then reply in",
            "the format at the end. Another member transcribes your reply verbatim",
            "into the log under your name.", "=" * 70, ""]
-    for name in ("ROSTER.md", "PROTOCOL.md"):
-        p = project_file(root, name, state)
-        if p.exists():
-            out += [f"--- {name.replace('.md','')} ---",
-                    p.read_text(encoding="utf-8").strip(), ""]
+    if not a.compact:
+        for name in ("ROSTER.md", "PROTOCOL.md"):
+            p = project_file(root, name, state)
+            if p.exists():
+                out += [f"--- {name.replace('.md','')} ---",
+                        p.read_text(encoding="utf-8").strip(), ""]
     out += ["--- OPEN THREADS ---", ""]
     for t in ts:
         out += [f"### {t['id']} - {t['title']}", t["text"].strip(), "", "-" * 70, ""]
@@ -1034,6 +1035,9 @@ def main():
     s.add_argument("member")
     s.add_argument("--out")
     s.add_argument("--thread", nargs="*", help="limit to these thread ids")
+    s.add_argument("--compact", action="store_true",
+                   help="skip the ROSTER.md/PROTOCOL.md dump - for a relay "
+                        "member's second briefing onward, not their first")
     s.set_defaults(func=cmd_brief)
 
     s = sub.add_parser("doctor", parents=[common], help="check log integrity")

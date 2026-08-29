@@ -945,6 +945,30 @@ def t_relay_stamping():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def t_brief_compact_flag():
+    d = fresh()
+    try:
+        run(d, "new", "Retry budget", "--frm", "Sol", "--to", "Opus", "--body", "burn")
+
+        full = d / "full.txt"
+        run(d, "brief", "Grok", "--out", str(full))
+        full_txt = full.read_text(encoding="utf-8")
+        check("default briefing includes the ROSTER dump", "--- ROSTER ---" in full_txt)
+        check("default briefing includes the PROTOCOL dump", "--- PROTOCOL ---" in full_txt)
+
+        compact = d / "compact.txt"
+        run(d, "brief", "Grok", "--out", str(compact), "--compact")
+        compact_txt = compact.read_text(encoding="utf-8")
+        check("--compact drops the ROSTER dump", "--- ROSTER ---" not in compact_txt)
+        check("--compact drops the PROTOCOL dump", "--- PROTOCOL ---" not in compact_txt)
+        check("--compact still includes the open thread",
+              "AGENT-001" in compact_txt and "Retry budget" in compact_txt)
+        check("--compact still includes the reply-format block",
+              "HOW TO REPLY" in compact_txt and "Do not write a timestamp" in compact_txt)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def t_ask_and_approval():
     d = fresh()
     try:
@@ -1079,7 +1103,7 @@ def run_all():
                t_doctor_skips_unfilled_roster_template,
                t_roundtrip, t_unicode_legacy, t_year_boundary,
                t_sort_across_years, t_external_edit, t_concurrent,
-               t_owes_reply, t_relay_stamping, t_ask_and_approval,
+               t_owes_reply, t_relay_stamping, t_brief_compact_flag, t_ask_and_approval,
                t_blank_status, t_doctor_catches):
         print(f"{fn.__name__}:")
         try:
