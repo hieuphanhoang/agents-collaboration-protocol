@@ -58,7 +58,8 @@ bookkeeping.
 Day to day, from inside the target repo:
 
 ```bash
-python .agents/handoff.py summary Opus                  # what is waiting on me
+python .agents/handoff.py waiting Opus                  # what is waiting on me
+python .agents/handoff.py summary                       # every live thread, not just mine
 python .agents/handoff.py new "Cache key" --frm Opus --to Codex \
        --type QUESTION --body-file question.md
 python .agents/handoff.py reply AGENT-001 --frm Codex \
