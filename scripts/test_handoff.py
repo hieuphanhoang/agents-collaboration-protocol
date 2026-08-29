@@ -11,6 +11,7 @@ Stdlib only, no pytest.
 """
 import argparse
 import datetime
+import os
 import pathlib
 import shutil
 import subprocess
@@ -385,6 +386,210 @@ def t_waiting_alias():
               missing.returncode != 0
               and "the following arguments are required: member" in missing.stderr,
               missing.stdout + missing.stderr)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_missing_promotion_refuses_without_write():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        p = next(logs(d).glob("AGENT-001-*.md"))
+        before = p.read_text(encoding="utf-8")
+
+        r = run(d, "close", "AGENT-001", "--frm", "Codex",
+                "--promoted-to", "missing.md", expect_ok=False)
+
+        after = p.read_text(encoding="utf-8")
+        check("close refuses a missing promoted path", r.returncode != 0, r.stdout + r.stderr)
+        check("close names the missing promoted path", "missing.md" in r.stderr,
+              r.stdout + r.stderr)
+        check("close writes nothing when promoted path is missing", after == before)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_stale_promotion_refuses_without_write():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        promoted = d / "contract.md"
+        promoted.write_text("old contract\n", encoding="utf-8")
+        old = datetime.datetime(2000, 1, 1, 0, 0).timestamp()
+        os.utime(promoted, (old, old))
+        p = next(logs(d).glob("AGENT-001-*.md"))
+        before = p.read_text(encoding="utf-8")
+
+        r = run(d, "close", "AGENT-001", "--frm", "Codex",
+                "--promoted-to", "contract.md", expect_ok=False)
+
+        after = p.read_text(encoding="utf-8")
+        check("close refuses a stale promoted path", r.returncode != 0,
+              r.stdout + r.stderr)
+        check("close names the stale promoted path", "contract.md" in r.stderr,
+              r.stdout + r.stderr)
+        check("close writes nothing when promoted path is stale", after == before)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_succeeds_with_fresh_promotion():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        promoted = d / "contract.md"
+        promoted.write_text("new contract\n", encoding="utf-8")
+
+        run(d, "close", "AGENT-001", "--frm", "Codex",
+            "--promoted-to", "contract.md")
+
+        thread = next(logs(d).glob("AGENT-001-*.md")).read_text(encoding="utf-8")
+        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        check("close sets status to closed", "| **Status** | closed |" in thread, thread)
+        check("close appends a closing comment", "[Codex," in thread and "contract.md" in thread,
+              thread)
+        check("close comment says recency is not relevance proof",
+              "recency check only" in thread, thread)
+        check("close sync reflects closed status",
+              "AGENT-001" in log and "| closed |" in log, log)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_allows_answered_and_blocked_threads():
+    d = fresh()
+    try:
+        for status in ("answered", "blocked"):
+            run(d, "new", f"Live {status}", "--frm", "Opus", "--to", "Codex",
+                "--body", "x")
+            tid = f"AGENT-{len(list(logs(d).glob('AGENT-*.md'))):03d}"
+            run(d, "reply", tid, "--frm", "Codex", "--body", status,
+                "--status", status)
+            promoted = d / f"{status}.md"
+            promoted.write_text(status, encoding="utf-8")
+
+            run(d, "close", tid, "--frm", "Codex", "--promoted-to", promoted.name)
+
+            thread = next(logs(d).glob(f"{tid}-*.md")).read_text(encoding="utf-8")
+            check(f"close allows {status} thread",
+                  "| **Status** | closed |" in thread and promoted.name in thread,
+                  thread)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_accepts_file_changed_before_report_comment():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        p = next(logs(d).glob("AGENT-001-*.md"))
+        text = p.read_text(encoding="utf-8")
+        created = next(l for l in text.splitlines() if "**Time**" in l)
+        base = datetime.datetime.strptime(created.split("|")[2].strip(),
+                                          "%Y-%m-%d %H:%M")
+
+        promoted = d / "contract.md"
+        promoted.write_text("new contract\n", encoding="utf-8")
+        promoted_at = (base + datetime.timedelta(minutes=1)).timestamp()
+        os.utime(promoted, (promoted_at, promoted_at))
+
+        # Normal workflow: the file changes during the thread, then the member's
+        # final report comment lands after the file edit. close must compare
+        # against thread creation, not the latest report comment.
+        report_time = base + datetime.timedelta(minutes=2)
+        p.write_text(text.rstrip() +
+                     f"\n\n---\n\n**[Codex, {report_time.strftime('%d%m')}, "
+                     f"{report_time.strftime('%H%M')}]**\n\nimplemented\n",
+                     encoding="utf-8")
+
+        run(d, "close", "AGENT-001", "--frm", "Codex",
+            "--promoted-to", "contract.md")
+
+        thread = p.read_text(encoding="utf-8")
+        check("close accepts file changed before final report comment",
+              "| **Status** | closed |" in thread and "contract.md" in thread,
+              thread)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_requires_all_promoted_paths_fresh():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        fresh_path = d / "fresh.md"
+        fresh_path.write_text("fresh\n", encoding="utf-8")
+        stale_path = d / "stale.md"
+        stale_path.write_text("stale\n", encoding="utf-8")
+        old = datetime.datetime(2000, 1, 1, 0, 0).timestamp()
+        os.utime(stale_path, (old, old))
+        p = next(logs(d).glob("AGENT-001-*.md"))
+        before = p.read_text(encoding="utf-8")
+
+        r = run(d, "close", "AGENT-001", "--frm", "Codex",
+                "--promoted-to", "fresh.md", "stale.md", expect_ok=False)
+
+        after = p.read_text(encoding="utf-8")
+        check("close refuses when any promoted path is stale", r.returncode != 0,
+              r.stdout + r.stderr)
+        check("close is all-or-nothing across promoted paths", after == before)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_rejects_unsafe_promoted_paths():
+    d = fresh()
+    try:
+        run(d, "new", "Cache contract", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        p = next(logs(d).glob("AGENT-001-*.md"))
+        before = p.read_text(encoding="utf-8")
+
+        for bad in ("..", "../outside.md", ".", str(d / "contract.md")):
+            r = run(d, "close", "AGENT-001", "--frm", "Codex",
+                    "--promoted-to", bad, expect_ok=False)
+            check(f"close rejects unsafe promoted path {bad!r}",
+                  r.returncode != 0 and "unsafe promoted path" in r.stderr,
+                  r.stdout + r.stderr)
+
+        after = p.read_text(encoding="utf-8")
+        check("close writes nothing for unsafe promoted paths", after == before)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_refuses_terminal_threads():
+    d = fresh()
+    try:
+        for status in ("closed", "withdrawn", "superseded"):
+            run(d, "new", f"Terminal {status}", "--frm", "Opus", "--to", "Codex",
+                "--body", "x")
+            tid = f"AGENT-{len(list(logs(d).glob('AGENT-*.md'))):03d}"
+            run(d, "reply", tid, "--frm", "Codex", "--body", "terminal",
+                "--status", status)
+            promoted = d / f"{status}.md"
+            promoted.write_text(status, encoding="utf-8")
+
+            r = run(d, "close", tid, "--frm", "Codex",
+                    "--promoted-to", promoted.name, expect_ok=False)
+
+            check(f"close refuses already {status} thread",
+                  r.returncode != 0 and "already terminal" in r.stderr,
+                  r.stdout + r.stderr)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_close_does_not_replace_reply_closed():
+    d = fresh()
+    try:
+        run(d, "new", "Manual close", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        run(d, "reply", "AGENT-001", "--frm", "Codex", "--body", "checked manually",
+            "--status", "closed")
+        thread = next(logs(d).glob("AGENT-001-*.md")).read_text(encoding="utf-8")
+
+        check("reply --status closed still works",
+              "| **Status** | closed |" in thread and "checked manually" in thread,
+              thread)
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -887,6 +1092,15 @@ def run_all():
                t_init_uses_existing_state_directory_rules, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
                t_summary, t_waiting_alias,
+               t_close_missing_promotion_refuses_without_write,
+               t_close_stale_promotion_refuses_without_write,
+               t_close_succeeds_with_fresh_promotion,
+               t_close_allows_answered_and_blocked_threads,
+               t_close_accepts_file_changed_before_report_comment,
+               t_close_requires_all_promoted_paths_fresh,
+               t_close_rejects_unsafe_promoted_paths,
+               t_close_refuses_terminal_threads,
+               t_close_does_not_replace_reply_closed,
                t_history_nudge, t_history_stale_across_year_boundary,
                t_doctor_notes_ignored_log, t_doctor_notes_unknown_roster_participants,
                t_doctor_skips_unfilled_roster_template,

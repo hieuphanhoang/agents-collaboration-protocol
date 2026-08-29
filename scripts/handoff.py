@@ -11,6 +11,7 @@ Stdlib only. Works on Windows, macOS, Linux.
   init    scaffold the protocol into a repo
   new     open a thread (AGENT- between members, ASK- to the owner)
   reply   append an attributed comment to a thread
+  close   close a thread after promoted files pass existence and recency checks
   sync    regenerate the handoff CHATLOG.md index blocks from chat_logs/
   summary print what is waiting right now, for a member arriving cold
   brief   emit a paste-ready briefing for a member with no file access
@@ -516,6 +517,73 @@ def cmd_reply(a):
     cmd_sync(a)
 
 
+def promoted_path(root, value):
+    parts = re.split(r"[\\/]+", value)
+    posix = pathlib.PurePosixPath(value)
+    win = pathlib.PureWindowsPath(value)
+    if posix.is_absolute() or win.is_absolute() or win.drive or ".." in parts:
+        sys.exit(f"unsafe promoted path '{value}' - use a path relative to --root")
+    clean_parts = [p for p in parts if p and p != "."]
+    if not clean_parts:
+        sys.exit(f"unsafe promoted path '{value}' - use a path relative to --root")
+    clean = pathlib.Path(*clean_parts)
+    return root / clean
+
+
+def cmd_close(a):
+    root = pathlib.Path(a.root).resolve()
+    state = state_rel(root, a.state_dir)
+    match = [t for t in read_threads(root, state) if t["id"] == a.id.upper()]
+    if not match:
+        sys.exit(f"no thread {a.id}")
+    t = match[0]
+    before = t["digest"]
+    st = status_token(t)
+    if st in {"closed", "withdrawn", "superseded"}:
+        sys.exit(f"{t['id']} is already terminal ({st})")
+    if not t["base"]:
+        sys.exit(f"{t['id']} has no valid creation timestamp to verify against")
+
+    promoted = []
+    problems = []
+    for raw in a.promoted_to:
+        path = promoted_path(root, raw)
+        if not path.exists():
+            problems.append(f"{raw}: missing")
+            continue
+        mtime = datetime.datetime.fromtimestamp(path.stat().st_mtime)
+        if mtime < t["base"]:
+            problems.append(f"{raw}: stale (modified {mtime.strftime('%Y-%m-%d %H:%M')}, "
+                            f"thread created {t['base'].strftime('%Y-%m-%d %H:%M')})")
+            continue
+        promoted.append(raw)
+    if problems:
+        sys.exit("cannot close; promoted path check failed:\n  " + "\n  ".join(problems))
+
+    extra = body_from(a, "")
+    ddmm, hhmm = now_stamp()
+    path_list = "\n".join(f"- `{p}`" for p in promoted)
+    generated = (
+        "Closing after promoted files passed the existence and recency checks:\n\n"
+        f"{path_list}\n\n"
+        "This is a recency check only, not proof of relevance or review quality."
+    )
+    body = f"{extra}\n\n{generated}" if extra else generated
+    text = t["raw"].rstrip() + f"\n\n---\n\n**[{a.frm}, {ddmm}, {hhmm}]**\n\n{body}\n"
+    text = set_header(text, "Status", "closed")
+
+    if digest(t["path"]) != before:
+        sys.exit(f"{t['path'].name} changed on disk while composing.\n"
+                 "Another member or the owner edited it. Re-read it and retry - "
+                 "never overwrite an edit you did not make.")
+    atomic_write(t["path"], text)
+
+    t2 = [x for x in read_threads(root, state) if x["id"] == t["id"]][0]
+    atomic_write(t2["path"], refresh_meta(t2))
+    print(f"closed {t['path'].name}  [{a.frm}, {ddmm}, {hhmm}]")
+    cmd_sync(a)
+
+
 def _row(t, cols):
     return "| " + " | ".join(cols) + " |"
 
@@ -939,6 +1007,16 @@ def main():
                    help="when the speaker actually said it, if not now "
                         "(relayed replies); recorded alongside the receipt stamp")
     s.set_defaults(func=cmd_reply)
+
+    s = sub.add_parser("close", parents=[common],
+                       help="close after promoted files exist and postdate thread creation "
+                            "(recency check only, not relevance proof)")
+    s.add_argument("id")
+    s.add_argument("--frm", required=True)
+    s.add_argument("--promoted-to", required=True, nargs="+",
+                   help="repo-relative file(s) updated after the thread was created")
+    add_body_args(s)
+    s.set_defaults(func=cmd_close)
 
     s = sub.add_parser("sync", parents=[common], help="regenerate .agents/CHATLOG.md blocks")
     s.set_defaults(func=cmd_sync)
