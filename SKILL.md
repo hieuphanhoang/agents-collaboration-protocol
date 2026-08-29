@@ -218,13 +218,14 @@ it is probably an owner question.
   rule, how the log merges, how to name the reviewer-of-record, and why members
   commit but the owner pushes. Read before more than one member commits.
 - `scripts/handoff.py` — the CLI above. `--help` on any subcommand.
-- `scripts/test_handoff.py` — 135 regression checks covering legacy Unicode
+- `scripts/test_handoff.py` — 158 regression checks covering legacy Unicode
   headers, year-boundary sorting, an edit landing mid-write, who the index says
   owes a reply, impossible timestamps, a status field emptied by hand,
   shell-hostile comment bodies, what `init` installs and what it refuses to do
   from the copy installed in a repo, relay stamping, ignored handoff state,
   custom `--state-dir` names and their rejection cases, roster-participant
-  drift, stale Conversation history, and index completeness. Run it after
+  drift, stale Conversation history, `close`'s promotion checks, and index
+  completeness. Run it after
   changing the script; these are the cases that have actually bitten.
 - `assets/` — templates the script writes, including the `CONTRIBUTING.md`
   every project gets for its own working conventions. Edit these to change what
