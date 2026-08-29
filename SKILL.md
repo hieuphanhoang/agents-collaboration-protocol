@@ -1,6 +1,6 @@
 ---
 name: agent-handoff
-description: Set up and run a file-based collaboration protocol so several AI agents from different providers (Claude Code, ChatGPT/Codex, opencode, Qwen, Cursor, Grok, and chat-only models) can work the same repository together without overwriting each other or duplicating work. Use this whenever the user mentions working with another AI model on a project, handing work off between agents, adding a member to a project, splitting a codebase between agents, a shared CHATLOG or agent log, or asks how two AIs should coordinate — even if they never say "protocol" or "handoff". Also use it when deciding which agent should own or do what, and when a repo already has .agents/CHATLOG.md and .agents/chat_logs/ and a thread needs writing, answering, or the index resyncing, and when onboarding a new agent to an existing multi-agent project.
+description: Set up and run a file-based collaboration protocol so several AI agents from different providers (Claude Code, ChatGPT/Codex, opencode, Qwen, Cursor, Grok, and chat-only models) can work the same repository together without overwriting each other or duplicating work. Use this whenever the user mentions working with another AI model on a project, handing work off between agents, adding a member to a project, splitting a codebase between agents, a shared CHATLOG or agent log, or asks how two AIs should coordinate — even if they never say "protocol" or "handoff". Also use it when deciding which agent should own or do what, and when a repo already has .handoff/CHATLOG.md and .handoff/chat_logs/ (or the older .agents/ or .claude/handoff/ install) and a thread needs writing, answering, or the index resyncing, and when onboarding a new agent to an existing multi-agent project.
 ---
 
 # Agent Handoff
@@ -40,15 +40,17 @@ same session.
    (`--no-project` because the script is stdlib-only and the target repo may
    have a `pyproject.toml` of its own that `uv` would otherwise try to sync.)
 
-   **Where the state goes.** `.agents/` normally. If the project has a
-   `.claude/` and no `.agents/`, it goes in `.claude/handoff/` — nested,
-   because `.claude/` already belongs to Claude Code and scattering our files
-   through another tool's config directory is the boundary violation this
-   protocol exists to prevent. `--state-dir` overrides — pass `.claude` for
-   the nested form, or any other safe relative path (e.g. `.handoff`) for a
-   project-specific name. A custom name opts out of auto-detection, so pass
-   it explicitly on every later command too. A project with both directories
-   has told us nothing, so it gets the vendor-neutral `.agents/`.
+   **Where the state goes.** `.handoff/` by default — vendor-neutral, no
+   collision with any tool's own config directory. A repo that already has
+   an installed `.agents/` or `.claude/handoff/` (from before this default
+   changed) keeps working with no flag needed; `init` and every later
+   command auto-detect an existing install before falling back to the
+   default. `--state-dir` overrides for a new install — `.agents` or
+   `.claude` (nested under `.claude/handoff/`, so it doesn't scatter files
+   through a directory that isn't ours) remain available as explicit
+   choices, or any other safe relative path for a project-specific name. A
+   custom name opts out of auto-detection, so pass it explicitly on every
+   later command too.
 
    **What registration is.** A short pointer appended to `AGENTS.md` and
    `CLAUDE.md` — both, if both exist — saying handoff mode is active and where

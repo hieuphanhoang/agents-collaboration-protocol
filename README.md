@@ -47,26 +47,30 @@ The skill is self-contained and stdlib-only. No dependencies, no build step.
 uv run --no-project scripts/handoff.py init --root /path/to/repo
 ```
 
-That writes `.agents/PROTOCOL.md`, `.agents/CHATLOG.md`,
-`.agents/ROSTER.md`, `.agents/chat_logs/`, the CLI at `.agents/handoff.py`,
-and an `AGENTS.md` pointer section. It is idempotent.
+That writes `.handoff/PROTOCOL.md`, `.handoff/CHATLOG.md`,
+`.handoff/ROSTER.md`, `.handoff/chat_logs/`, the CLI at `.handoff/handoff.py`,
+and an `AGENTS.md` pointer section. It is idempotent. (A repo with an
+existing `.agents/` or `.claude/handoff/` install keeps using it - `init`
+and every command auto-detect before falling back to the `.handoff/`
+default; `--state-dir .agents` or `--state-dir .claude` still work as
+explicit choices for a new install too.)
 
-Then fill in `.agents/ROSTER.md` - who the members are and **which directories
+Then fill in `.handoff/ROSTER.md` - who the members are and **which directories
 each one owns**. Ownership is the load-bearing part; everything else is
 bookkeeping.
 
 Day to day, from inside the target repo:
 
 ```bash
-python .agents/handoff.py waiting Opus                  # what is waiting on me
-python .agents/handoff.py summary                       # every live thread, not just mine
-python .agents/handoff.py new "Cache key" --frm Opus --to Codex \
+python .handoff/handoff.py waiting Opus                  # what is waiting on me
+python .handoff/handoff.py summary                       # every live thread, not just mine
+python .handoff/handoff.py new "Cache key" --frm Opus --to Codex \
        --type QUESTION --body-file question.md
-python .agents/handoff.py reply AGENT-001 --frm Codex \
+python .handoff/handoff.py reply AGENT-001 --frm Codex \
        --body-stdin --status answered < answer.md
-python .agents/handoff.py sync                          # rebuild the index
-python .agents/handoff.py doctor                        # check for damage
-python .agents/handoff.py test                          # the regression suite
+python .handoff/handoff.py sync                          # rebuild the index
+python .handoff/handoff.py doctor                        # check for damage
+python .handoff/handoff.py test                          # the regression suite
 ```
 
 Pass long or quoted comments as `--body-file` or `--body-stdin`, never as
@@ -79,26 +83,26 @@ into the log is a lie in the record that nobody can spot later.
 
 | File | Purpose |
 |---|---|
-| `.agents/PROTOCOL.md` | How the log works. Every member reads it |
-| `.agents/ROSTER.md` | Who exists, who owns which directories |
-| `.agents/CHATLOG.md` | The index: awaiting-owner, open threads, conversation history, all messages |
-| `.agents/chat_logs/` | One file per topic, `AGENT-###` between members, `ASK-###` to the owner |
-| `.agents/handoff.py` | The CLI, so every member can run it - not just the one whose skill folder holds it |
+| `.handoff/PROTOCOL.md` | How the log works. Every member reads it |
+| `.handoff/ROSTER.md` | Who exists, who owns which directories |
+| `.handoff/CHATLOG.md` | The index: awaiting-owner, open threads, conversation history, all messages |
+| `.handoff/chat_logs/` | One file per topic, `AGENT-###` between members, `ASK-###` to the owner |
+| `.handoff/handoff.py` | The CLI, so every member can run it - not just the one whose skill folder holds it |
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
 | `SKILL.md` | Skill entry point: the workflow and the rules that carry weight |
-| `references/protocol.md` | The provider-neutral protocol, copied into repos as `.agents/PROTOCOL.md` |
+| `references/protocol.md` | The provider-neutral protocol, copied into repos as `.handoff/PROTOCOL.md` |
 | `references/onboarding.md` | Adding or removing a member; the chat-only relay loop |
 | `references/git.md` | Committing, branching and merging when several members share a repo |
 | `references/task-fit.md` | Per-provider strengths and failure modes; a work-to-member routing table |
 | `assets/` | Templates `init` writes |
 | `scripts/handoff.py` | The CLI |
 | `scripts/test_handoff.py` | The regression suite — the cases that have actually bitten |
-| `.agents/CONTRIBUTING.md` | How to work on this repository: the working agreement, invariants and open work |
-| `.agents/reviews/` | Recorded design critiques, kept as evidence |
+| `.handoff/CONTRIBUTING.md` | How to work on this repository: the working agreement, invariants and open work |
+| `.handoff/reviews/` | Recorded design critiques, kept as evidence |
 
 ## Development
 
@@ -106,7 +110,7 @@ into the log is a lie in the record that nobody can spot later.
 uv run --no-project scripts/handoff.py test
 ```
 
-Run it after any change to `scripts/`. [.agents/CONTRIBUTING.md](.agents/CONTRIBUTING.md) has the
+Run it after any change to `scripts/`. [.handoff/CONTRIBUTING.md](.handoff/CONTRIBUTING.md) has the
 full working agreement; two rules matter most:
 
 - **A new test must fail against the old code.** Copy the tree, revert the fix
