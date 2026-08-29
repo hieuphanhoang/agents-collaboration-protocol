@@ -47,7 +47,7 @@ STATUSES = {"open", "answered", "closed", "withdrawn", "superseded", "blocked"}
 LIVE = {"open", "answered", "blocked"}
 TYPES = {"STATUS", "QUESTION", "REQUEST", "ANSWER", "DECISION", "BLOCKER", "ACK"}
 REQUIRED_HEADERS = {"From -> To", "Type", "Status", "Time"}
-DEFAULT_STATE_DIR = ".agents"
+DEFAULT_STATE_DIR = ".handoff"
 INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md")
 
 BLOCKS = {
@@ -118,15 +118,11 @@ def state_name(root, requested=None):
         if clean == ".claude/handoff":
             return clean
         return ".claude/handoff" if clean == ".claude" else clean
-    installed = [".agents", ".claude/handoff"]
+    installed = [".handoff", ".agents", ".claude/handoff"]
     for name in installed:
         p = root / name
         if (p / "CHATLOG.md").exists() or (p / "PROTOCOL.md").exists():
             return name
-    agents_exists = (root / ".agents").is_dir()
-    claude_exists = (root / ".claude").is_dir()
-    if claude_exists and not agents_exists:
-        return ".claude/handoff"
     return DEFAULT_STATE_DIR
 
 
@@ -151,7 +147,7 @@ def state_rel(root, requested=None):
 
 
 def render_state_text(text, state):
-    """Templates are written for .agents; .claude is an explicit alternate."""
+    """Templates are written with .agents placeholders for legacy state paths."""
     return text.replace(".agents", state)
 
 
@@ -385,7 +381,7 @@ def cmd_init(a):
     skill_checkout = is_skill_checkout(root, here)
     state = state_rel(root, a.state_dir)
     # init is the one subcommand that needs the skill folder, because it copies
-    # templates out of it. The copy installed at .agents/handoff.py sits two
+    # templates out of it. The copy installed under a target state dir sits two
     # levels under a target repo, where none of them exist - so without this
     # check it dies part-way through scaffolding with a bare FileNotFoundError,
     # leaving a half-built repo and a member with nothing to go on. Say which
@@ -414,7 +410,7 @@ Every other subcommand works from this copy.""")
         print(f"  wrote          {state}/{dst}")
 
     # The tool has to live in the repo, not only in one provider's skill folder.
-    # .agents/PROTOCOL.md tells every member to stamp with it; a member who
+    # The installed PROTOCOL.md tells every member to stamp with it; a member who
     # cannot run it is pushed straight into the hand-editing the same document
     # forbids.
     tool = state_dir(root, state) / "handoff.py"
@@ -974,8 +970,8 @@ def main():
     common.add_argument("--root", default=argparse.SUPPRESS,
                         help="repo root (default: cwd), accepted before or after the subcommand")
     common.add_argument("--state-dir", default=argparse.SUPPRESS,
-                        help="handoff state folder, .agents by default; .claude means "
-                             ".claude/handoff; custom values must be relative")
+                        help="handoff state folder, .handoff by default; explicit .agents "
+                             "works; .claude means .claude/handoff; custom values must be relative")
     p = argparse.ArgumentParser(prog="handoff", description=__doc__, parents=[common],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1018,7 +1014,7 @@ def main():
     add_body_args(s)
     s.set_defaults(func=cmd_close)
 
-    s = sub.add_parser("sync", parents=[common], help="regenerate .agents/CHATLOG.md blocks")
+    s = sub.add_parser("sync", parents=[common], help="regenerate handoff CHATLOG.md blocks")
     s.set_defaults(func=cmd_sync)
 
     s = sub.add_parser("summary", parents=[common],

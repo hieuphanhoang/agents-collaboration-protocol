@@ -42,11 +42,11 @@ def fresh():
     return d
 
 
-def meta(root, name, state=".agents"):
+def meta(root, name, state=".handoff"):
     return root / state / name
 
 
-def logs(root, state=".agents"):
+def logs(root, state=".handoff"):
     return root / state / "chat_logs"
 
 
@@ -55,8 +55,8 @@ def t_init():
     d = fresh()
     try:
         for f in ("PROTOCOL.md", "CHATLOG.md", "ROSTER.md", "CONTRIBUTING.md"):
-            check(f"init writes .agents/{f}", meta(d, f).exists())
-        check("init creates .agents/chat_logs/", logs(d).is_dir())
+            check(f"init writes .handoff/{f}", meta(d, f).exists())
+        check("init creates .handoff/chat_logs/", logs(d).is_dir())
         check("bare init leaves root instruction files alone",
               not (d / "AGENTS.md").exists() and not (d / "CLAUDE.md").exists())
         check("init leaves no root-level protocol files",
@@ -76,12 +76,12 @@ def t_init_ships_the_tool():
     """A member without the skill folder must still be able to run the tool."""
     d = fresh()
     try:
-        tool = d / ".agents" / "handoff.py"
+        tool = d / ".handoff" / "handoff.py"
         check("init installs the CLI into the repo", tool.is_file())
         check("the installed copy is byte-identical",
               tool.read_bytes() == CLI.read_bytes())
         check("its test suite comes along",
-              (d / ".agents" / "test_handoff.py").is_file())
+              (d / ".handoff" / "test_handoff.py").is_file())
         r = subprocess.run([sys.executable, str(tool), "--root", str(d), "doctor"],
                            capture_output=True, text=True)
         check("the installed copy runs", r.returncode == 0, r.stdout + r.stderr)
@@ -92,8 +92,8 @@ def t_init_ships_the_tool():
         ag2 = (d / "AGENTS.md").read_text(encoding="utf-8")
         check("re-init preserves existing AGENTS.md content", "keep this" in ag2)
         check("init points AGENTS.md at the protocol", "PROTOCOL.md" in ag2)
-        check("AGENTS.md points at .agents/PROTOCOL.md", ".agents/PROTOCOL.md" in ag2)
-        check("AGENTS.md names the in-repo tool", ".agents/handoff.py" in ag2)
+        check("AGENTS.md points at .handoff/PROTOCOL.md", ".handoff/PROTOCOL.md" in ag2)
+        check("AGENTS.md names the in-repo tool", ".handoff/handoff.py" in ag2)
         check("AGENTS.md tells members to pass their own name to summary",
               "summary <you>" in ag2)
         run(d, "init")
@@ -117,7 +117,7 @@ def t_init_registers_existing_instruction_files_once():
 
     A project may already have AGENTS.md, CLAUDE.md, both, or neither. init
     should point existing harness files at the state folder once, then leave
-    them alone; the mutable handoff work belongs under .agents/ or .claude/.
+    them alone; the mutable handoff work belongs under .handoff/.
     """
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-existing-instructions-"))
     try:
@@ -127,8 +127,8 @@ def t_init_registers_existing_instruction_files_once():
 
         ag = (d / "AGENTS.md").read_text(encoding="utf-8")
         cl = (d / "CLAUDE.md").read_text(encoding="utf-8")
-        check("init registers an existing AGENTS.md", ".agents/PROTOCOL.md" in ag)
-        check("init registers an existing CLAUDE.md", ".agents/PROTOCOL.md" in cl)
+        check("init registers an existing AGENTS.md", ".handoff/PROTOCOL.md" in ag)
+        check("init registers an existing CLAUDE.md", ".handoff/PROTOCOL.md" in cl)
         check("registration preserves AGENTS.md content", "keep agents" in ag)
         check("registration preserves CLAUDE.md content", "keep claude" in cl)
 
@@ -180,27 +180,28 @@ def t_init_can_use_claude_state_dir():
 
 def t_init_can_use_custom_state_dir():
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-custom-state-"))
+    custom = ".team-handoff"
     try:
         (d / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
-        run(d, "init", "--state-dir", ".handoff")
+        run(d, "init", "--state-dir", custom)
         check("init can write state under a custom directory",
-              meta(d, "CHATLOG.md", ".handoff").is_file())
-        check("custom init does not also create .agents", not (d / ".agents").exists())
+              meta(d, "CHATLOG.md", custom).is_file())
+        check("custom init does not also create .handoff", not (d / ".handoff").exists())
         ag = (d / "AGENTS.md").read_text(encoding="utf-8")
         check("registration points at custom PROTOCOL.md",
-              ".handoff/PROTOCOL.md" in ag)
+              f"{custom}/PROTOCOL.md" in ag)
         check("registration names custom handoff.py",
-              ".handoff/handoff.py" in ag)
+              f"{custom}/handoff.py" in ag)
         run(d, "new", "Custom state", "--frm", "Opus", "--to", "Codex",
-            "--body", "x", "--state-dir", ".handoff")
+            "--body", "x", "--state-dir", custom)
         run(d, "reply", "AGENT-001", "--frm", "Codex", "--body", "y",
-            "--status", "answered", "--state-dir", ".handoff")
+            "--status", "answered", "--state-dir", custom)
         check("commands work against custom state when explicit",
-              bool(list(logs(d, ".handoff").glob("AGENT-001-*.md"))))
-        out = run(d, "summary", "Opus", "--state-dir", ".handoff").stdout
+              bool(list(logs(d, custom).glob("AGENT-001-*.md"))))
+        out = run(d, "summary", "Opus", "--state-dir", custom).stdout
         check("summary works against custom state",
               "YOURS (Opus): 1 thread(s)" in out, out)
-        run(d, "doctor", "--state-dir", ".handoff")
+        run(d, "doctor", "--state-dir", custom)
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -233,8 +234,9 @@ def t_init_uses_existing_state_directory_rules():
         (claude_only / ".claude" / "commands").mkdir()
         (claude_only / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
         run(claude_only, "init")
-        check("existing .claude uses nested handoff state",
-              (claude_only / ".claude" / "handoff" / "CHATLOG.md").is_file())
+        check("fresh init ignores bare .claude and uses .handoff",
+              (claude_only / ".handoff" / "CHATLOG.md").is_file()
+              and not (claude_only / ".claude" / "handoff" / "CHATLOG.md").exists())
         check("Claude config file is untouched",
               (claude_only / ".claude" / "settings.json").read_text(encoding="utf-8") == "{}")
         check("Claude commands directory is untouched",
@@ -242,7 +244,7 @@ def t_init_uses_existing_state_directory_rules():
         check("nothing lands directly in .claude",
               not (claude_only / ".claude" / "CHATLOG.md").exists())
         cl = (claude_only / "CLAUDE.md").read_text(encoding="utf-8")
-        check("CLAUDE.md names the nested handoff state", ".claude/handoff/" in cl)
+        check("CLAUDE.md names the default handoff state", ".handoff/" in cl)
 
         both = d / "both"
         both.mkdir()
@@ -251,19 +253,33 @@ def t_init_uses_existing_state_directory_rules():
         (both / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
         (both / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
         run(both, "init")
-        check("both directories resolve to .agents",
-              (both / ".agents" / "CHATLOG.md").is_file()
-              and not (both / ".claude" / "handoff" / "CHATLOG.md").exists())
-        check("both instruction files are registered",
-              ".agents/PROTOCOL.md" in (both / "AGENTS.md").read_text(encoding="utf-8")
-              and ".agents/PROTOCOL.md" in (both / "CLAUDE.md").read_text(encoding="utf-8"))
+        check("empty vendor directories use .handoff and register instructions",
+              (both / ".handoff" / "CHATLOG.md").is_file()
+              and not (both / ".agents" / "CHATLOG.md").exists()
+              and not (both / ".claude" / "handoff" / "CHATLOG.md").exists()
+              and ".handoff/PROTOCOL.md" in (both / "AGENTS.md").read_text(encoding="utf-8")
+              and ".handoff/PROTOCOL.md" in (both / "CLAUDE.md").read_text(encoding="utf-8"))
+
+        legacy_agents = d / "legacy-agents"
+        legacy_agents.mkdir()
+        run(legacy_agents, "init", "--state-dir", ".agents")
+        legacy_claude = d / "legacy-claude"
+        legacy_claude.mkdir()
+        run(legacy_claude, "init", "--state-dir", ".claude")
+        run(legacy_agents, "new", "Legacy agents", "--frm", "Opus",
+            "--to", "Codex", "--body", "x")
+        run(legacy_claude, "new", "Legacy claude", "--frm", "Opus",
+            "--to", "Codex", "--body", "x")
+        check("installed legacy states are still auto-detected",
+              bool(list(logs(legacy_agents, ".agents").glob("AGENT-001-*.md")))
+              and bool(list(logs(legacy_claude, ".claude/handoff").glob("AGENT-001-*.md"))))
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
 
 def t_init_needs_the_skill_folder():
     """
-    The copy installed at .agents/handoff.py ships no templates, so its init
+    The copy installed at .handoff/handoff.py ships no templates, so its init
     cannot work. It used to die part-way through scaffolding with a bare
     FileNotFoundError - the least useful thing to hand the one member who has no
     skill folder to compare against, and it left a half-built repo behind.
@@ -271,15 +287,15 @@ def t_init_needs_the_skill_folder():
     d = fresh()
     e = pathlib.Path(tempfile.mkdtemp(prefix="handoff-target-"))
     try:
-        tool = d / ".agents" / "handoff.py"
+        tool = d / ".handoff" / "handoff.py"
         r = subprocess.run([sys.executable, str(tool), "--root", str(e), "init"],
                            capture_output=True, text=True)
         check("init from the installed copy fails", r.returncode != 0)
         check("it explains rather than raising", "Traceback" not in r.stderr, r.stderr)
         check("it points at the skill checkout", "skill" in r.stderr.lower(), r.stderr)
         check("it scaffolds nothing before giving up",
-              not (e / ".agents" / "chat_logs").exists()
-              and not (e / ".agents" / "PROTOCOL.md").exists())
+              not (e / ".handoff" / "chat_logs").exists()
+              and not (e / ".handoff" / "PROTOCOL.md").exists())
         check("every other subcommand still runs from the installed copy",
               subprocess.run([sys.executable, str(tool), "--root", str(d), "doctor"],
                              capture_output=True, text=True).returncode == 0)
@@ -293,7 +309,7 @@ def t_init_inside_skill_skips_installed_copy():
     The skill repo can dogfood the protocol without creating a second CLI copy.
 
     The authoritative tool is already scripts/handoff.py. Installing another
-    copy under .agents/ would give this repo two CLIs that can drift apart.
+    copy under .handoff/ would give this repo two CLIs that can drift apart.
     """
     source = HERE.parent
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-skill-"))
@@ -315,7 +331,7 @@ def t_init_inside_skill_skips_installed_copy():
         check("self-init avoids a duplicate protocol copy",
               proto != (skill / "references" / "protocol.md").read_text(encoding="utf-8"))
         check("self-init skips a duplicate installed CLI",
-              not (skill / ".agents" / "handoff.py").exists(), r.stdout)
+              not (skill / ".handoff" / "handoff.py").exists(), r.stdout)
         check("self-init tells members which CLI to use",
               "use scripts/handoff.py here" in r.stdout, r.stdout)
     finally:
@@ -671,14 +687,14 @@ def t_doctor_notes_ignored_log():
     """A log hidden by .gitignore will disappear from a fresh clone."""
     d = fresh()
     try:
-        (d / ".gitignore").write_text(".agents/\n", encoding="utf-8")
+        (d / ".gitignore").write_text(".handoff/\n", encoding="utf-8")
         r = run(d, "doctor")
         check("doctor notes when .gitignore hides handoff state",
               "ignore handoff state" in r.stdout, r.stdout)
         check("the ignored-log note is non-fatal", r.returncode == 0, r.stdout)
 
-        (d / ".gitignore").write_text(".agents/handoff.py\n"
-                                      ".agents/test_handoff.py\n",
+        (d / ".gitignore").write_text(".handoff/handoff.py\n"
+                                      ".handoff/test_handoff.py\n",
                                       encoding="utf-8")
         r = run(d, "doctor")
         check("ignoring only installed CLI copies is accepted",
