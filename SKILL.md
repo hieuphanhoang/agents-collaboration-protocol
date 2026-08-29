@@ -79,6 +79,8 @@ same session.
 | Open a thread to another member | `handoff.py new "title" --frm Opus --to Sol --type QUESTION --body "..."` |
 | Escalate to the owner | same, plus `--ask` |
 | Reply in a thread | `handoff.py reply AGENT-004 --frm Sol --body-file reply.md --status answered` |
+| Close a thread once the decision is in the code | `handoff.py close AGENT-004 --frm Sol --promoted-to path/to/changed/file.py` |
+| Brief a relay member with no file access | `handoff.py brief Grok --out briefing.txt` (add `--compact` past their first briefing) |
 | Rebuild the index | `handoff.py sync` |
 | Check for damage | `handoff.py doctor` |
 | Verify the tool itself after editing it | `handoff.py test` |

@@ -141,7 +141,10 @@ which parts of an answer depend on code they have not seen. That turns an
 unverifiable opinion into a checkable list, and it is cheap for them to produce.
 
 **Keep the briefing small.** Do not paste closed threads. A model given sixty
-pages of settled history answers the wrong question.
+pages of settled history answers the wrong question. Past the first
+briefing, add `--compact` to drop the ROSTER.md/PROTOCOL.md dump - a relay
+member who has already seen it once does not need it repeated in every
+paste, only the open threads and the reply format.
 
 ---
 
