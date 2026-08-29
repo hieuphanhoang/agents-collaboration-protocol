@@ -948,6 +948,11 @@ def main():
     s.add_argument("member", nargs="?", help="also show what is waiting on this member")
     s.set_defaults(func=cmd_summary)
 
+    s = sub.add_parser("waiting", parents=[common],
+                       help="alias for 'summary <member>' - what is waiting on you")
+    s.add_argument("member")
+    s.set_defaults(func=cmd_summary)
+
     s = sub.add_parser("brief", parents=[common], help="briefing for a relay member")
     s.add_argument("member")
     s.add_argument("--out")

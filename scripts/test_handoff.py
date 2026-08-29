@@ -370,6 +370,25 @@ def t_summary():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def t_waiting_alias():
+    d = fresh()
+    try:
+        run(d, "new", "Retry budget", "--frm", "Opus", "--to", "Codex", "--body", "x")
+        summary = run(d, "summary", "Codex").stdout
+        waiting = run(d, "waiting", "Codex", expect_ok=False)
+        check("waiting <member> succeeds", waiting.returncode == 0,
+              waiting.stdout + waiting.stderr)
+        check("waiting <member> matches summary <member>",
+              waiting.stdout == summary, waiting.stdout)
+        missing = run(d, "waiting", expect_ok=False)
+        check("waiting requires a member argument",
+              missing.returncode != 0
+              and "the following arguments are required: member" in missing.stderr,
+              missing.stdout + missing.stderr)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def t_history_nudge():
     """Conversation history is hand-written, so doctor nudges rather than fails."""
     d = fresh()
@@ -867,7 +886,8 @@ def run_all():
                t_init_can_use_custom_state_dir, t_state_dir_rejects_unsafe_paths,
                t_init_uses_existing_state_directory_rules, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
-               t_summary, t_history_nudge, t_history_stale_across_year_boundary,
+               t_summary, t_waiting_alias,
+               t_history_nudge, t_history_stale_across_year_boundary,
                t_doctor_notes_ignored_log, t_doctor_notes_unknown_roster_participants,
                t_doctor_skips_unfilled_roster_template,
                t_roundtrip, t_unicode_legacy, t_year_boundary,
