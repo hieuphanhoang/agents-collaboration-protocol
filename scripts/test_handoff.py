@@ -47,23 +47,91 @@ def meta(root, name, state=".handoff"):
 
 
 def logs(root, state=".handoff"):
-    return root / state / "chat_logs"
+    return root / state / "threads"
+
+
+def write_legacy_state(root, state=".handoff"):
+    base = root / state
+    old_threads = base / "chat_logs"
+    old_threads.mkdir(parents=True)
+    (base / "CHATLOG.md").write_text("""# CHATLOG
+
+## Awaiting owner
+<!-- handoff:awaiting:start -->
+| ID | Decision or approval | Since |
+|---|---|---|
+| - | *nothing waiting on you* | |
+<!-- handoff:awaiting:end -->
+
+## Open threads
+<!-- handoff:open:start -->
+| ID | Subject | Owes a reply | Since |
+|---|---|---|---|
+| [`AGENT-001`](chat_logs/AGENT-001-legacy-layout.md) | Legacy layout | Codex | 01-01 12:00 |
+<!-- handoff:open:end -->
+
+## Conversation history
+
+| Time | Speaker | Thread | Note |
+|---|---|---|---|
+| 01-01 12:00 | Opus | AGENT-001 | opened from the old chat_logs path |
+
+## All messages
+<!-- handoff:threads:start -->
+| ID | Subject | From -> To | Type | Status | Last |
+|---|---|---|---|---|---|
+| [`AGENT-001`](chat_logs/AGENT-001-legacy-layout.md) | Legacy layout | Opus -> Codex | QUESTION | open | 01-01 12:00 |
+<!-- handoff:threads:end -->
+""", encoding="utf-8")
+    (base / "ROSTER.md").write_text("""# ROSTER
+
+## Members
+
+| Name | Model / harness | File access | Owns | Reads instructions from |
+|---|---|---|---|---|
+| Owner | human | direct | final say | - |
+| Opus | Claude | direct | docs | AGENTS.md |
+| Codex | GPT | direct | scripts | AGENTS.md |
+""", encoding="utf-8")
+    (base / "PROTOCOL.md").write_text(
+        "Members read .handoff/CHATLOG.md and write .handoff/chat_logs/.\n",
+        encoding="utf-8")
+    (base / "CONTRIBUTING.md").write_text(
+        "Decisions about work go in chat_logs/ and CHATLOG.md indexes them.\n",
+        encoding="utf-8")
+    (old_threads / "AGENT-001-legacy-layout.md").write_text("""# `AGENT-001` - Legacy layout
+
+| | |
+|---|---|
+| **From -> To** | Opus -> Codex |
+| **Type** | QUESTION |
+| **Status** | open |
+| **Latest** | Opus, 01-01 12:00 (1 comments) |
+| **Updated** | 2026-01-01 12:00 |
+| **Time** | 2026-01-01 12:00 |
+
+---
+
+**[Opus, 0101, 1200]**
+
+Written before the storage rename.
+""", encoding="utf-8")
 
 
 # ------------------------------------------------------------------ tests
 def t_init():
     d = fresh()
     try:
-        for f in ("PROTOCOL.md", "CHATLOG.md", "ROSTER.md", "CONTRIBUTING.md"):
+        for f in ("PROTOCOL.md", "INDEX.md", "ROSTER.md", "CONTRIBUTING.md"):
             check(f"init writes .handoff/{f}", meta(d, f).exists())
-        check("init creates .handoff/chat_logs/", logs(d).is_dir())
+        check("init creates .handoff/threads/", logs(d).is_dir())
         check("bare init leaves root instruction files alone",
               not (d / "AGENTS.md").exists() and not (d / "CLAUDE.md").exists())
         check("init leaves no root-level protocol files",
               not any((d / f).exists()
-                      for f in ("PROTOCOL.md", "CHATLOG.md", "ROSTER.md",
-                                "CONTRIBUTING.md", "chat_logs")))
-        body = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+                      for f in ("PROTOCOL.md", "INDEX.md", "ROSTER.md",
+                                "CONTRIBUTING.md", "threads")))
+        body = meta(d, "INDEX.md").read_text(encoding="utf-8")
         for blk in ("awaiting", "open", "threads"):
             check(f"template has '{blk}' marker block",
                   f"<!-- handoff:{blk}:start -->" in body)
@@ -163,7 +231,7 @@ def t_init_can_use_custom_state_dir():
         (d / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
         run(d, "init", "--state-dir", custom)
         check("init can write state under a custom directory",
-              meta(d, "CHATLOG.md", custom).is_file())
+              meta(d, "INDEX.md", custom).is_file())
         check("custom init does not also create .handoff", not (d / ".handoff").exists())
         ag = (d / "AGENTS.md").read_text(encoding="utf-8")
         check("registration points at custom PROTOCOL.md",
@@ -180,6 +248,68 @@ def t_init_can_use_custom_state_dir():
         check("summary works against custom state",
               "YOURS (Opus): 1 thread(s)" in out, out)
         run(d, "doctor", "--state-dir", custom)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_migrate_legacy_storage():
+    d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-legacy-storage-"))
+    try:
+        write_legacy_state(d)
+
+        r = run(d, "summary", expect_ok=False)
+        check("commands refuse legacy storage before migration",
+              r.returncode != 0 and "handoff migrate" in r.stderr,
+              r.stdout + r.stderr)
+
+        r = run(d, "doctor", expect_ok=False)
+        check("doctor reports legacy storage",
+              r.returncode != 0 and "legacy handoff storage" in r.stdout,
+              r.stdout + r.stderr)
+
+        run(d, "migrate")
+        check("migrate renames CHATLOG.md to INDEX.md",
+              meta(d, "INDEX.md").is_file() and not meta(d, "CHATLOG.md").exists())
+        check("migrate renames chat_logs to threads",
+              logs(d).is_dir() and not (d / ".handoff" / "chat_logs").exists())
+        check("migrated thread file is preserved",
+              (logs(d) / "AGENT-001-legacy-layout.md").is_file())
+
+        body = meta(d, "INDEX.md").read_text(encoding="utf-8")
+        check("migrate rewrites index links",
+              "threads/AGENT-001-legacy-layout.md" in body and "chat_logs/" not in body,
+              body)
+        proto = meta(d, "PROTOCOL.md").read_text(encoding="utf-8")
+        contrib = meta(d, "CONTRIBUTING.md").read_text(encoding="utf-8")
+        check("migrate rewrites state docs",
+              "INDEX.md" in proto and "threads/" in proto
+              and "INDEX.md" in contrib and "threads/" in contrib,
+              proto + contrib)
+
+        r = run(d, "doctor")
+        check("doctor accepts migrated storage", r.returncode == 0, r.stdout + r.stderr)
+        out = run(d, "summary", "Codex").stdout
+        check("summary reads migrated threads",
+              "YOURS (Codex): 1 thread(s)" in out and "AGENT-001" in out,
+              out)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_migrate_refuses_split_storage():
+    d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-split-storage-"))
+    try:
+        write_legacy_state(d)
+        meta(d, "INDEX.md").write_text("new index\n", encoding="utf-8")
+        logs(d).mkdir()
+        r = run(d, "migrate", expect_ok=False)
+        check("migrate refuses to overwrite current storage",
+              r.returncode != 0 and "cannot migrate" in r.stderr,
+              r.stdout + r.stderr)
+        check("migrate leaves legacy index untouched on conflict",
+              meta(d, "CHATLOG.md").is_file())
+        check("migrate leaves legacy threads untouched on conflict",
+              (d / ".handoff" / "chat_logs" / "AGENT-001-legacy-layout.md").is_file())
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -222,9 +352,9 @@ def t_init_ignores_vendor_directories():
         (d / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
         run(d, "init")
         check("init uses .handoff regardless of .claude/.agents being present",
-              (d / ".handoff" / "CHATLOG.md").is_file())
-        check("nothing is written into .claude", not (d / ".claude" / "CHATLOG.md").exists())
-        check("nothing is written into .agents", not (d / ".agents" / "CHATLOG.md").exists())
+              (d / ".handoff" / "INDEX.md").is_file())
+        check("nothing is written into .claude", not (d / ".claude" / "INDEX.md").exists())
+        check("nothing is written into .agents", not (d / ".agents" / "INDEX.md").exists())
         check("an unrelated file already in .claude is untouched",
               (d / ".claude" / "settings.json").read_text(encoding="utf-8") == "{}")
         check("an unrelated directory already in .claude is untouched",
@@ -252,7 +382,7 @@ def t_init_needs_the_skill_folder():
         check("it explains rather than raising", "Traceback" not in r.stderr, r.stderr)
         check("it points at the skill checkout", "skill" in r.stderr.lower(), r.stderr)
         check("it scaffolds nothing before giving up",
-              not (e / ".handoff" / "chat_logs").exists()
+              not (e / ".handoff" / "threads").exists()
               and not (e / ".handoff" / "PROTOCOL.md").exists())
         check("every other subcommand still runs from the installed copy",
               subprocess.run([sys.executable, str(tool), "--root", str(d), "doctor"],
@@ -272,7 +402,7 @@ def t_init_inside_skill_skips_installed_copy():
     source = HERE.parent
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-skill-"))
     try:
-        skill = d / "agent-handoff"
+        skill = d / "multi-agent-collaboration-protocol"
         skill.mkdir()
         for name in ("SKILL.md", "README.md"):
             shutil.copy2(source / name, skill / name)
@@ -283,7 +413,7 @@ def t_init_inside_skill_skips_installed_copy():
                            capture_output=True, text=True)
         check("self-init succeeds in the skill checkout", r.returncode == 0,
               r.stdout + r.stderr)
-        check("self-init writes the log scaffold", meta(skill, "CHATLOG.md").is_file())
+        check("self-init writes the log scaffold", meta(skill, "INDEX.md").is_file())
         proto = meta(skill, "PROTOCOL.md").read_text(encoding="utf-8")
         check("self-init writes a protocol pointer", "references/protocol.md" in proto)
         check("self-init avoids a duplicate protocol copy",
@@ -418,7 +548,7 @@ def t_close_succeeds_with_fresh_promotion():
             "--promoted-to", "contract.md")
 
         thread = next(logs(d).glob("AGENT-001-*.md")).read_text(encoding="utf-8")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         check("close sets status to closed", "| **Status** | closed |" in thread, thread)
         check("close appends a closing comment", "[Codex," in thread and "contract.md" in thread,
               thread)
@@ -580,7 +710,7 @@ def t_history_nudge():
         updated = next(l for l in th.splitlines() if "**Updated**" in l)
         row_time = datetime.datetime.strptime(updated.split("|")[2].strip(),
                                               "%Y-%m-%d %H:%M").strftime("%d-%m %H:%M")
-        log = meta(d, "CHATLOG.md")
+        log = meta(d, "INDEX.md")
         log.write_text(log.read_text(encoding="utf-8").replace(
             "| | | | |",
             f"| {row_time} | Opus | AGENT-001 | asked who owns the cache key |"),
@@ -619,7 +749,7 @@ December.
 January, the following year.
 """, encoding="utf-8")
         run(d, "sync")
-        log = meta(d, "CHATLOG.md")
+        log = meta(d, "INDEX.md")
         log.write_text(log.read_text(encoding="utf-8").replace(
             "| | | | |",
             "| 31-12 23:59 | Codex | AGENT-001 | mentioned but stale |"),
@@ -679,7 +809,7 @@ def t_doctor_notes_unknown_roster_participants():
 
 | Path | Purpose | Change rule |
 |---|---|---|
-| CHATLOG.md | index | shared |
+| INDEX.md | index | shared |
 """, encoding="utf-8")
         run(d, "new", "Known", "--frm", "Opus", "--to", "Codex", "--body", "x")
         r = run(d, "doctor")
@@ -719,7 +849,7 @@ def t_roundtrip():
     try:
         run(d, "new", "Cache key", "--frm", "Opus", "--to", "Sol", "--body", "hash or query?")
         run(d, "reply", "AGENT-001", "--frm", "Sol", "--body", "query", "--status", "answered")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         check("thread appears in index", "AGENT-001" in log)
         check("recipient parsed, not '?'", "Opus -> Sol" in log, log)
         check("open-thread block lists who owes a reply", "Sol" in log)
@@ -753,7 +883,7 @@ def t_unicode_legacy():
 Written by a different agent, with Unicode punctuation.
 """, encoding="utf-8")
         run(d, "sync")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         check("Unicode 'From -> To' header is read", "Opus -> Sol" in log, log)
         check("no '?' recipient from Unicode header", "| ? |" not in log)
         check("Unicode title parsed without the id prefix", "Legacy thread" in log)
@@ -820,7 +950,7 @@ def t_sort_across_years():
 body
 """, encoding="utf-8")
         run(d, "sync")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         rows = [l for l in log.splitlines() if l.startswith("| [`AGENT-")]
         first = rows[0] if rows else ""
         check("2027 thread sorts above 2026 thread", "AGENT-002" in first, first)
@@ -900,7 +1030,7 @@ def t_owes_reply():
     d = fresh()
     try:
         run(d, "new", "Cache key", "--frm", "Opus", "--to", "Sol", "--body", "hash or query?")
-        log = meta(d, "CHATLOG.md")
+        log = meta(d, "INDEX.md")
 
         def open_block():
             b = log.read_text(encoding="utf-8")
@@ -974,7 +1104,7 @@ def t_ask_and_approval():
     try:
         run(d, "new", "Approve installing CUDA toolkit", "--frm", "Opus + Sol",
             "--to", "IKN", "--ask", "--type", "REQUEST", "--body", "3-5 GB")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         check("ASK- appears in the awaiting-owner block",
               "ASK-001" in log.split("handoff:awaiting:start")[1].split("handoff:awaiting:end")[0])
         check("awaiting block covers approvals, not just decisions",
@@ -1011,7 +1141,7 @@ def t_blank_status():
               "Status header is empty" in r.stdout, r.stdout)
 
         run(d, "sync")
-        log = meta(d, "CHATLOG.md").read_text(encoding="utf-8")
+        log = meta(d, "INDEX.md").read_text(encoding="utf-8")
         block = (log.split("<!-- handoff:open:start -->")[1]
                     .split("<!-- handoff:open:end -->")[0])
         check("a thread with an unreadable status stays in the open section",
@@ -1072,7 +1202,7 @@ no From->To header, bogus status, implausible stamp
         shape.unlink()
 
         run(d, "sync")
-        log = meta(d, "CHATLOG.md")
+        log = meta(d, "INDEX.md")
         log.write_text(log.read_text(encoding="utf-8").replace(
             "<!-- handoff:open:start -->", "<!-- removed -->"), encoding="utf-8")
         r = run(d, "doctor", expect_ok=False)
@@ -1082,10 +1212,11 @@ no From->To header, bogus status, implausible stamp
 
 
 def run_all():
-    print("agent-handoff regression suite\n")
+    print("multi-agent-collaboration-protocol regression suite\n")
     for fn in (t_init, t_init_ships_the_tool,
                t_init_registers_existing_instruction_files_once,
-               t_init_can_use_custom_state_dir, t_state_dir_rejects_unsafe_paths,
+               t_init_can_use_custom_state_dir, t_migrate_legacy_storage,
+               t_migrate_refuses_split_storage, t_state_dir_rejects_unsafe_paths,
                t_init_ignores_vendor_directories, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
                t_summary, t_waiting_alias,

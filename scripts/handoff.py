@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-agent-handoff - file-based collaboration protocol for multi-provider agent teams.
+multi-agent-collaboration-protocol - file-based collaboration protocol for
+multi-provider agent teams.
 
 Every command reads the real system clock, so timestamps cannot be invented.
 Writes are atomic and check for concurrent modification, because the whole point
@@ -12,7 +13,8 @@ Stdlib only. Works on Windows, macOS, Linux.
   new     open a thread (AGENT- between members, ASK- to the owner)
   reply   append an attributed comment to a thread
   close   close a thread after promoted files pass existence and recency checks
-  sync    regenerate the handoff CHATLOG.md index blocks from chat_logs/
+  migrate rename legacy CHATLOG.md/chat_logs storage to INDEX.md/threads
+  sync    regenerate the handoff INDEX.md index blocks from threads/
   summary print what is waiting right now, for a member arriving cold
   waiting alias for 'summary <member>' - what is waiting on you
   brief   emit a paste-ready briefing for a member with no file access
@@ -49,6 +51,10 @@ LIVE = {"open", "answered", "blocked"}
 TYPES = {"STATUS", "QUESTION", "REQUEST", "ANSWER", "DECISION", "BLOCKER", "ACK"}
 REQUIRED_HEADERS = {"From -> To", "Type", "Status", "Time"}
 DEFAULT_STATE_DIR = ".handoff"
+INDEX_FILE = "INDEX.md"
+THREADS_NAME = "threads"
+LEGACY_INDEX_FILE = "CHATLOG.md"
+LEGACY_THREADS_NAME = "chat_logs"
 INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md")
 
 BLOCKS = {
@@ -134,11 +140,19 @@ def state_dir(root, requested=None):
 
 
 def threads_dir(root, requested=None):
-    return state_dir(root, requested) / "chat_logs"
+    return state_dir(root, requested) / THREADS_NAME
 
 
 def log_path(root, requested=None):
-    return state_dir(root, requested) / "CHATLOG.md"
+    return state_dir(root, requested) / INDEX_FILE
+
+
+def legacy_threads_dir(root, requested=None):
+    return state_dir(root, requested) / LEGACY_THREADS_NAME
+
+
+def legacy_log_path(root, requested=None):
+    return state_dir(root, requested) / LEGACY_INDEX_FILE
 
 
 def project_file(root, name, requested=None):
@@ -147,6 +161,40 @@ def project_file(root, name, requested=None):
 
 def state_rel(root, requested=None):
     return state_name(root, requested)
+
+
+def storage_name_replacements(text):
+    return (text.replace(LEGACY_INDEX_FILE, INDEX_FILE)
+                .replace(LEGACY_THREADS_NAME + "/", THREADS_NAME + "/")
+                .replace(LEGACY_THREADS_NAME, THREADS_NAME))
+
+
+def legacy_storage_pairs(root, state):
+    return [
+        (legacy_threads_dir(root, state), threads_dir(root, state),
+         f"{state}/{LEGACY_THREADS_NAME}/", f"{state}/{THREADS_NAME}/"),
+        (legacy_log_path(root, state), log_path(root, state),
+         f"{state}/{LEGACY_INDEX_FILE}", f"{state}/{INDEX_FILE}"),
+    ]
+
+
+def legacy_storage_found(root, state):
+    return [old_label for old, _, old_label, _ in legacy_storage_pairs(root, state)
+            if old.exists()]
+
+
+def legacy_migration_message(state, found):
+    names = ", ".join(found)
+    return (f"legacy handoff storage found: {names}\n"
+            f"Run `handoff migrate --root <repo>` to rename "
+            f"{state}/{LEGACY_INDEX_FILE} to {state}/{INDEX_FILE} and "
+            f"{state}/{LEGACY_THREADS_NAME}/ to {state}/{THREADS_NAME}/.")
+
+
+def ensure_no_legacy_storage(root, state):
+    found = legacy_storage_found(root, state)
+    if found:
+        sys.exit(legacy_migration_message(state, found))
 
 
 def render_state_text(text, state):
@@ -354,7 +402,7 @@ Several agents work this repository at once. Before writing anything:
 # Everything init copies out of the skill folder, named once so that the guard
 # below and the copy loop cannot fall out of step with each other.
 INIT_SOURCES = [("references/protocol.md", "PROTOCOL.md"),
-                ("assets/CHATLOG.template.md", "CHATLOG.md"),
+                ("assets/INDEX.template.md", INDEX_FILE),
                 ("assets/ROSTER.template.md", "ROSTER.md"),
                 ("assets/CONTRIBUTING.template.md", "CONTRIBUTING.md")]
 TEST_SUITE = "scripts/test_handoff.py"
@@ -384,6 +432,7 @@ def cmd_init(a):
     here = pathlib.Path(__file__).resolve().parent.parent
     skill_checkout = is_skill_checkout(root, here)
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     # init is the one subcommand that needs the skill folder, because it copies
     # templates out of it. The copy installed under a target state dir sits two
     # levels under a target repo, where none of them exist - so without this
@@ -446,9 +495,52 @@ Every other subcommand works from this copy.""")
     print(f"Next: fill in {state}/ROSTER.md (members, owned directories), then `handoff new`.")
 
 
+def cmd_migrate(a):
+    root = pathlib.Path(a.root).resolve()
+    state = state_rel(root, a.state_dir)
+    pairs = legacy_storage_pairs(root, state)
+    conflicts = [f"{old_label} and {new_label}" for old, new, old_label, new_label in pairs
+                 if old.exists() and new.exists()]
+    if conflicts:
+        sys.exit("cannot migrate while both legacy and current paths exist:\n  "
+                 + "\n  ".join(conflicts)
+                 + "\nMove or merge one side by hand, then run migrate again.")
+
+    moved = []
+    for old, new, old_label, new_label in pairs:
+        if not old.exists():
+            continue
+        new.parent.mkdir(parents=True, exist_ok=True)
+        old.replace(new)
+        moved.append(f"{old_label} -> {new_label}")
+
+    if not moved:
+        if log_path(root, state).exists() or threads_dir(root, state).exists():
+            print(f"already migrated: {state}/{INDEX_FILE} and {state}/{THREADS_NAME}/")
+        else:
+            print(f"no handoff state found under {state} - run `handoff init` first")
+        return
+
+    for name in (INDEX_FILE, "PROTOCOL.md", "ROSTER.md", "CONTRIBUTING.md"):
+        p = project_file(root, name, state)
+        if not p.exists():
+            continue
+        old = p.read_text(encoding="utf-8")
+        new = storage_name_replacements(old)
+        if new != old:
+            atomic_write(p, new)
+
+    print("migrated legacy handoff storage:")
+    for line in moved:
+        print(f"  {line}")
+    if log_path(root, state).exists():
+        cmd_sync(a)
+
+
 def cmd_new(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     kind = "ASK" if a.ask else "AGENT"
     ttype = a.type.upper()
     if ttype not in TYPES:
@@ -488,6 +580,7 @@ def cmd_new(a):
 def cmd_reply(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     match = [t for t in read_threads(root, state) if t["id"] == a.id.upper()]
     if not match:
         sys.exit(f"no thread {a.id}")
@@ -533,6 +626,7 @@ def promoted_path(root, value):
 def cmd_close(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     match = [t for t in read_threads(root, state) if t["id"] == a.id.upper()]
     if not match:
         sys.exit(f"no thread {a.id}")
@@ -591,9 +685,10 @@ def _row(t, cols):
 def cmd_sync(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     log = log_path(root, state)
     if not log.exists():
-        sys.exit(f"no {state}/CHATLOG.md - run `handoff init` first")
+        sys.exit(f"no {state}/{INDEX_FILE} - run `handoff init` first")
 
     for t in read_threads(root, state):
         new = refresh_meta(t)
@@ -604,7 +699,7 @@ def cmd_sync(a):
     ts.sort(key=lambda t: t["last_dt"] or datetime.datetime.min, reverse=True)
 
     def link(t):
-        return f"[`{t['id']}`](chat_logs/{t['path'].name})"
+        return f"[`{t['id']}`]({THREADS_NAME}/{t['path'].name})"
 
     def when(t):
         return t["last_dt"].strftime("%d-%m %H:%M") if t["last_dt"] else "-"
@@ -639,17 +734,18 @@ def cmd_sync(a):
         else:
             missing.append(name)
     atomic_write(log, text)
-    print(f"synced {state}/CHATLOG.md - {len(ts)} threads, {len(openagent)} open between members, "
+    print(f"synced {state}/{INDEX_FILE} - {len(ts)} threads, {len(openagent)} open between members, "
           f"{len(openask)} awaiting owner")
     if missing:
         print(f"  note: no marker block for {', '.join(missing)} - add the "
-              f"<!-- handoff:{missing[0]}:start/end --> pair to {state}/CHATLOG.md")
+              f"<!-- handoff:{missing[0]}:start/end --> pair to {state}/{INDEX_FILE}")
 
 
 def cmd_summary(a):
     """What a member needs to know on arrival, without reading the whole log."""
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     ts = sorted(read_threads(root, state),
                 key=lambda t: t["last_dt"] or datetime.datetime.min, reverse=True)
     live = [t for t in ts if is_live(t)]
@@ -672,12 +768,13 @@ def cmd_summary(a):
         print(f"\nYOURS ({a.member}): {len(mine)} thread(s) waiting on you")
         for t in mine:
             print(line(t))
-    print(f"\nFull index: {state}/CHATLOG.md   Rules: {state}/PROTOCOL.md   Ownership: {state}/ROSTER.md")
+    print(f"\nFull index: {state}/{INDEX_FILE}   Rules: {state}/PROTOCOL.md   Ownership: {state}/ROSTER.md")
 
 
 def cmd_brief(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
     ts = [t for t in read_threads(root, state)
           if is_live(t)]
     if a.thread:
@@ -731,7 +828,7 @@ def history_notes(body, ts, state, cap=5):
     """
     m = re.search(r"##\s*Conversation history(.*?)(?=\n##\s|\Z)", body, re.S)
     if not m:
-        return [f"{state}/CHATLOG.md: no 'Conversation history' section"]
+        return [f"{state}/{INDEX_FILE}: no 'Conversation history' section"]
     section = m.group(1)
     rows = [l for l in section.splitlines()
             if l.startswith("|") and set(l) - set("|-: ")
@@ -740,7 +837,7 @@ def history_notes(body, ts, state, cap=5):
     if not active:
         return []
     if not rows:
-        return [f"{state}/CHATLOG.md: Conversation history is empty though "
+        return [f"{state}/{INDEX_FILE}: Conversation history is empty though "
                 f"{len(active)} thread(s) have comments - write your turn"]
     missing = [t["id"] for t in active if t["id"] not in section]
     if not missing:
@@ -754,13 +851,13 @@ def history_notes(body, ts, state, cap=5):
         latest_history = max(history_dates)
         if latest["last_dt"] <= latest_history:
             return []
-        return [f"{state}/CHATLOG.md: Conversation history latest row "
+        return [f"{state}/{INDEX_FILE}: Conversation history latest row "
                 f"({latest_history.strftime('%Y-%m-%d %H:%M')}) is older than "
                 f"latest thread activity ({latest['id']} at "
                 f"{latest['last_dt'].strftime('%Y-%m-%d %H:%M')}) - "
                 f"add your turn at the top, newest first"]
     shown = ", ".join(missing[:cap]) + (" ..." if len(missing) > cap else "")
-    return [f"{state}/CHATLOG.md: no Conversation history row mentions {shown} - "
+    return [f"{state}/{INDEX_FILE}: no Conversation history row mentions {shown} - "
             f"add your turn at the top, newest first"]
 
 
@@ -872,8 +969,8 @@ def gitignore_decision(root, rel):
 
 
 def gitignore_notes(root, state):
-    checks = [f"{state}/CHATLOG.md", f"{state}/ROSTER.md",
-              f"{state}/PROTOCOL.md", f"{state}/chat_logs/AGENT-001-example.md"]
+    checks = [f"{state}/{INDEX_FILE}", f"{state}/ROSTER.md",
+              f"{state}/PROTOCOL.md", f"{state}/{THREADS_NAME}/AGENT-001-example.md"]
     hits = []
     for rel in checks:
         ignored, match = gitignore_decision(root, rel)
@@ -891,6 +988,9 @@ def cmd_doctor(a):
     state = state_rel(root, a.state_dir)
     ts = read_threads(root, state)
     p, notes = [], []
+    found = legacy_storage_found(root, state)
+    if found:
+        p.append(legacy_migration_message(state, found))
     notes += gitignore_notes(root, state)
     notes += roster_notes(root, state, ts)
     seen = {}
@@ -924,23 +1024,24 @@ def cmd_doctor(a):
 
     log = log_path(root, state)
     if not log.exists():
-        p.append(f"{state}/CHATLOG.md missing")
+        if not found:
+            p.append(f"{state}/{INDEX_FILE} missing")
     else:
         body = log.read_text(encoding="utf-8")
         for name, (b, e) in BLOCKS.items():
             if b not in body or e not in body:
-                p.append(f"{state}/CHATLOG.md: missing '{name}' marker block - "
+                p.append(f"{state}/{INDEX_FILE}: missing '{name}' marker block - "
                          f"sync cannot maintain that section")
-        for lk in sorted(set(re.findall(r"\(chat_logs/([^)]+)\)", body))):
+        for lk in sorted(set(re.findall(r"\(" + re.escape(THREADS_NAME) + r"/([^)]+)\)", body))):
             if not (threads_dir(root, state) / lk).exists():
-                p.append(f"{state}/CHATLOG.md: dead link -> chat_logs/{lk}")
+                p.append(f"{state}/{INDEX_FILE}: dead link -> {THREADS_NAME}/{lk}")
         ids = {t["id"] for t in ts}
         for tid in sorted(set(re.findall(r"`((?:AGENT|ASK)-\d{3})`", body))):
             if tid not in ids:
-                p.append(f"{state}/CHATLOG.md: references {tid}, no such thread")
+                p.append(f"{state}/{INDEX_FILE}: references {tid}, no such thread")
         for t in ts:
             if t["id"] not in body:
-                p.append(f"{state}/CHATLOG.md: {t['id']} exists but is not in the index - run sync")
+                p.append(f"{state}/{INDEX_FILE}: {t['id']} exists but is not in the index - run sync")
         notes += history_notes(body, ts, state)
 
     for t in ts:
@@ -989,6 +1090,10 @@ def main():
                    help="do not create or append AGENTS.md or CLAUDE.md registration")
     s.set_defaults(func=cmd_init)
 
+    s = sub.add_parser("migrate", parents=[common],
+                       help="rename legacy CHATLOG.md/chat_logs storage to INDEX.md/threads")
+    s.set_defaults(func=cmd_migrate)
+
     s = sub.add_parser("new", parents=[common], help="open a thread")
     s.add_argument("title")
     s.add_argument("--frm", required=True)
@@ -1019,7 +1124,7 @@ def main():
     add_body_args(s)
     s.set_defaults(func=cmd_close)
 
-    s = sub.add_parser("sync", parents=[common], help="regenerate handoff CHATLOG.md blocks")
+    s = sub.add_parser("sync", parents=[common], help="regenerate handoff INDEX.md blocks")
     s.set_defaults(func=cmd_sync)
 
     s = sub.add_parser("summary", parents=[common],
