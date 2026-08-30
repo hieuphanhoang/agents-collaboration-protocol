@@ -6,7 +6,7 @@ plain markdown with ASCII punctuation so that any agent can read and reproduce
 it.
 
 Members are listed in `.handoff/ROSTER.md`. The conversation lives in
-`.handoff/CHATLOG.md` (the index) and `.handoff/chat_logs/` (one file per topic).
+`.handoff/INDEX.md` (the index) and `.handoff/threads/` (one file per topic).
 
 ---
 
@@ -47,7 +47,7 @@ that drift becomes a build error instead of a runtime surprise.
 
 ## 3 - Threads
 
-One file per topic: `.handoff/chat_logs/<ID>-<slug>.md`. IDs are monotonic and
+One file per topic: `.handoff/threads/<ID>-<slug>.md`. IDs are monotonic and
 never reused.
 
 | Prefix | Between | Meaning |
@@ -167,7 +167,7 @@ way into the log is a lie in the record that nobody can spot afterwards.
 
 ---
 
-## 5 - The index: `.handoff/CHATLOG.md`
+## 5 - The index: `.handoff/INDEX.md`
 
 The only file every member writes. Keep the shared surface small: add one table
 row, so a collision is one line and trivially merged.
@@ -247,7 +247,7 @@ member starts by reading six months of conversation.
 
 | Content | Where it goes |
 |---|---|
-| The work: interfaces, architecture, findings, decisions | `.handoff/chat_logs/` |
+| The work: interfaces, architecture, findings, decisions | `.handoff/threads/` |
 | How we work in this project: checks to run, conventions, definition of done | `.handoff/CONTRIBUTING.md` |
 | How the log itself works: format, naming, ordering, thread rules | `.handoff/PROTOCOL.md` - and changing it is the owner's call |
 | Neither, or unclear | Ask the owner. Do not invent a home for it. |
@@ -291,7 +291,7 @@ Two things make an approval request easy to answer:
 Providers differ in what they emit reliably. Two conventions prevent silent
 churn:
 
-- **ASCII punctuation in shared files** (`.handoff/CHATLOG.md`, the contract).
+- **ASCII punctuation in shared files** (`.handoff/INDEX.md`, the contract).
   Use `-` not em-dash, `->` not arrow. Otherwise one member transliterates and
   the next converts back, and real changes disappear into the noise.
 - **Plain markdown tables and fenced code.** No provider-specific syntax, no
@@ -335,8 +335,8 @@ is long-running and disruptive, or for a member whose writes land in a lump
 because a human applies them later. Name the branch for the task, not the
 member.
 
-**`CHATLOG.md` is generated; thread files are append-only.** Never resolve a
-`CHATLOG.md` conflict by hand - take either side whole and re-run `sync`, which
+**`INDEX.md` is generated; thread files are append-only.** Never resolve a
+`INDEX.md` conflict by hand - take either side whole and re-run `sync`, which
 rebuilds it from the threads. Do resolve a thread conflict by keeping *both*
 comments, ordered by their stamps: two members spoke, and a merge is not the
 place to decide one of them did not. Every comment carries a real clock time, so

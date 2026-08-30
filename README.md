@@ -1,11 +1,12 @@
-# agent-handoff
+# Multi-Agent Collaboration Protocol
 
-A file-based collaboration protocol that lets several AI agents from different
-providers work the same repository without overwriting each other or re-deciding
-settled questions.
+**Make Claude Code, Codex, Cursor, opencode, Qwen and chat-only models
+collaborate on the same repository - without overwriting each other or
+re-deciding settled questions.**
 
-It ships as a skill (`SKILL.md` plus `references/`, `assets/`, `scripts/`) and
-installs into a target repo as four plain-markdown artefacts and a CLI.
+A file-based collaboration protocol for AI coding agents that do not share a
+session, memory, or runtime. Zero dependencies, plain Markdown, one
+standard-library Python CLI. Works with any agent that can read a file.
 
 ---
 
@@ -15,6 +16,26 @@ Multiple agents on one repo fail in a specific way: they cannot see each other.
 No shared conversation, no shared memory, no way to ask a quick question. Left
 alone they overwrite each other's files, re-decide settled questions, and hand
 the human the same problem three times in three different words.
+
+Handing a summary from one session to the next does not fix this. That is
+sequential baton-passing; this is the harder case - several agents working
+in parallel, on different providers, over days, where the questions are
+*who owns what*, *what was already decided*, and *who has to approve this*.
+
+## Where this sits next to MCP, ACP and A2A
+
+These are different layers, and they compose rather than compete:
+
+| Layer | What it does | Examples |
+|---|---|---|
+| Agent to tools | Connects an agent to external context, tools and resources | MCP |
+| Agent to agent, live | Agents discover, message and delegate to each other over a live transport | ACP, A2A |
+| **Agent to agent, durable** | **Agents that are never online at the same time coordinate through the repository, with ownership, review and escalation rules** | **this project** |
+
+The distinction is time and durability, not topology. MCP, ACP and A2A all
+assume the participants are running. This assumes they are not: a Claude Code
+session today and a Codex session tomorrow, coordinating through files that
+outlive both, with an audit trail a human can read months later.
 
 ## The two ideas everything else follows from
 
@@ -37,7 +58,7 @@ repo has `SKILL.md` at its root with no `skills/` subfolder, so the whole
 repo installs as one skill:
 
 ```bash
-npx skills add hieuphanhoang/agent-handoff
+npx skills add hieuphanhoang/multi-agent-collaboration-protocol
 ```
 
 Project-local by default; add `-g` to install to your home directory
@@ -49,7 +70,8 @@ actually works end to end before writing it down. See the skills CLI's own
 Or clone it directly and point your agent harness at it yourself:
 
 ```bash
-git clone https://github.com/hieuphanhoang/agent-handoff ~/.agents/skills/agent-handoff
+git clone https://github.com/hieuphanhoang/multi-agent-collaboration-protocol \
+  ~/.agents/skills/multi-agent-collaboration-protocol
 ```
 
 Either way, the skill is self-contained and stdlib-only. No dependencies,
@@ -62,8 +84,8 @@ no build step.
 uv run --no-project scripts/handoff.py init --root /path/to/repo
 ```
 
-That writes `.handoff/PROTOCOL.md`, `.handoff/CHATLOG.md`,
-`.handoff/ROSTER.md`, `.handoff/chat_logs/`, the CLI at `.handoff/handoff.py`,
+That writes `.handoff/PROTOCOL.md`, `.handoff/INDEX.md`,
+`.handoff/ROSTER.md`, `.handoff/threads/`, the CLI at `.handoff/handoff.py`,
 and an `AGENTS.md` pointer section. It is idempotent. `--state-dir <path>`
 picks a different name if `.handoff/` doesn't suit a project - pass it on
 every later command too, since only `.handoff/` is looked for automatically.
@@ -98,8 +120,8 @@ into the log is a lie in the record that nobody can spot later.
 |---|---|
 | `.handoff/PROTOCOL.md` | How the log works. Every member reads it |
 | `.handoff/ROSTER.md` | Who exists, who owns which directories |
-| `.handoff/CHATLOG.md` | The index: awaiting-owner, open threads, conversation history, all messages |
-| `.handoff/chat_logs/` | One file per topic, `AGENT-###` between members, `ASK-###` to the owner |
+| `.handoff/INDEX.md` | The index: awaiting-owner, open threads, conversation history, all messages |
+| `.handoff/threads/` | One file per topic, `AGENT-###` between members, `ASK-###` to the owner |
 | `.handoff/handoff.py` | The CLI, so every member can run it - not just the one whose skill folder holds it |
 
 ## Repository layout

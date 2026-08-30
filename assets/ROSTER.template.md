@@ -51,7 +51,7 @@ routing table. Revisit this section whenever a member changes model generation.
 | Path | Purpose | Change rule |
 |---|---|---|
 | `<contract path>` | The machine-readable interface every member generates code from | Needs review from every affected member |
-| `CHATLOG.md` | The index | Add one row; do not restructure alone |
+| `INDEX.md` | The index | Add one row; do not restructure alone |
 | `PROTOCOL.md` | How we work | Owner decides changes |
 
 ---

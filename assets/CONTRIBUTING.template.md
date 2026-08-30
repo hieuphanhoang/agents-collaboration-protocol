@@ -1,7 +1,7 @@
 # How we work here - <PROJECT>
 
 Working conventions for the members of this project. Not the log: decisions
-about the *work* go in `chat_logs/`, and this file holds the standing rules
+about the *work* go in `threads/`, and this file holds the standing rules
 about *how* we work, which would otherwise clog the log with process talk.
 
 Read `PROTOCOL.md` first - that is how the log itself works, and it is the same

@@ -77,19 +77,19 @@ Two habits follow:
 
 `<state>/` holds two kinds of file and they merge in opposite ways.
 
-### `CHATLOG.md` is generated - never resolve it by hand
+### `INDEX.md` is generated - never resolve it by hand
 
 The tables between the `<!-- handoff:... -->` markers are rebuilt from the
 thread files by `sync`. Two members who both ran `sync` will conflict on nearly
 every row, and every one of those conflicts is noise: the file is a build
-artifact of `chat_logs/`.
+artifact of `threads/`.
 
 **Resolution: take either side whole, then re-run `sync`.**
 
 ```
-git checkout --ours <state>/CHATLOG.md   # or --theirs; it does not matter
+git checkout --ours <state>/INDEX.md   # or --theirs; it does not matter
 <cli> sync
-git add <state>/CHATLOG.md
+git add <state>/INDEX.md
 ```
 
 The one part that is not generated is **Conversation history**, which is
@@ -201,7 +201,7 @@ answerable without research:
 ## 5 - Commit messages do not need agent attribution
 
 You already have an attributed record. Every decision, every disagreement and
-every author is in `chat_logs/`, stamped and quoted. Repeating that in commit
+every author is in `threads/`, stamped and quoted. Repeating that in commit
 trailers duplicates the log somewhere nobody reads it back from, and the copy
 goes stale the moment the thread continues past the commit.
 
@@ -222,7 +222,7 @@ thing to put in the message - one token that leads to the whole argument.
   stamp, and add a new comment saying it was restored and why. Do not re-stamp
   it to now: that would make the log lie about when it was said, and the log's
   whole value is that it does not.
-- **`CHATLOG.md` is full of conflict markers.** Do not repair it by hand. Check
+- **`INDEX.md` is full of conflict markers.** Do not repair it by hand. Check
   out either side whole and run `sync`.
 - **Two members keep conflicting in the same file.** That is the boundary being
   in the wrong place, not a git problem. See `onboarding.md` section 5.

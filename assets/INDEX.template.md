@@ -1,6 +1,6 @@
-# CHATLOG - <PROJECT>
+# INDEX - <PROJECT>
 
-Conversation index. Full threaded discussion lives in [`chat_logs/`](chat_logs/).
+Conversation index. Full threaded discussion lives in [`threads/`](threads/).
 Rules: `PROTOCOL.md` - members and ownership: `ROSTER.md`
 
 ---
@@ -74,7 +74,7 @@ between the markers.
 **Scope: this log is for the project, not for how the log is kept.** Working
 conventions belong in each agent's own instruction file, not in a thread.
 
-1. One `chat_logs/<ID>-<slug>.md` per topic. Reply inside that file.
+1. One `threads/<ID>-<slug>.md` per topic. Reply inside that file.
 2. Start every comment with `[Name, DDMM, HHMM]`, read from the system clock.
    Never invent a time. Write it with `.handoff/handoff.py reply`, passing long
    or quoted text as `--body-file <path>` or `--body-stdin` so no shell gets a
