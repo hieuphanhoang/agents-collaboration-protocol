@@ -22,20 +22,9 @@ sequential baton-passing; this is the harder case - several agents working
 in parallel, on different providers, over days, where the questions are
 *who owns what*, *what was already decided*, and *who has to approve this*.
 
-## Where this sits next to MCP, ACP and A2A
-
-These are different layers, and they compose rather than compete:
-
-| Layer | What it does | Examples |
-|---|---|---|
-| Agent to tools | Connects an agent to external context, tools and resources | MCP |
-| Agent to agent, live | Agents discover, message and delegate to each other over a live transport | ACP, A2A |
-| **Agent to agent, durable** | **Agents that are never online at the same time coordinate through the repository, with ownership, review and escalation rules** | **this project** |
-
-The distinction is time and durability, not topology. MCP, ACP and A2A all
-assume the participants are running. This assumes they are not: a Claude Code
-session today and a Codex session tomorrow, coordinating through files that
-outlive both, with an audit trail a human can read months later.
+The agents here may never be running at the same time: a Claude Code session
+today, a Codex session tomorrow. They coordinate through files that outlive
+both, with an audit trail a human can still read months later.
 
 ## The two ideas everything else follows from
 
