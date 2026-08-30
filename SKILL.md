@@ -218,7 +218,7 @@ it is probably an owner question.
   rule, how the log merges, how to name the reviewer-of-record, and why members
   commit but the owner pushes. Read before more than one member commits.
 - `scripts/handoff.py` — the CLI above. `--help` on any subcommand.
-- `scripts/test_handoff.py` — 158 regression checks covering legacy Unicode
+- `scripts/test_handoff.py` — the regression suite, covering legacy Unicode
   headers, year-boundary sorting, an edit landing mid-write, who the index says
   owes a reply, impossible timestamps, a status field emptied by hand,
   shell-hostile comment bodies, what `init` installs and what it refuses to do

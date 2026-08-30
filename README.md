@@ -74,8 +74,10 @@ uv run --no-project scripts/handoff.py init --root /path/to/repo
 ```
 
 That writes `.handoff/PROTOCOL.md`, `.handoff/INDEX.md`,
-`.handoff/ROSTER.md`, `.handoff/threads/`, the CLI at `.handoff/handoff.py`,
-and an `AGENTS.md` pointer section. It is idempotent. `--state-dir <path>`
+`.handoff/ROSTER.md`, `.handoff/threads/`, and the CLI at
+`.handoff/handoff.py`. If the project already has an `AGENTS.md` or
+`CLAUDE.md`, a short pointer section is appended to it; if it has neither,
+`init` creates neither. It is idempotent. `--state-dir <path>`
 picks a different name if `.handoff/` doesn't suit a project - pass it on
 every later command too, since only `.handoff/` is looked for automatically.
 
@@ -125,8 +127,6 @@ into the log is a lie in the record that nobody can spot later.
 | `assets/` | Templates `init` writes |
 | `scripts/handoff.py` | The CLI |
 | `scripts/test_handoff.py` | The regression suite — the cases that have actually bitten |
-| `.handoff/CONTRIBUTING.md` | How to work on this repository: the working agreement, invariants and open work |
-| `.handoff/reviews/` | Recorded design critiques, kept as evidence |
 
 ## Development
 
@@ -134,8 +134,7 @@ into the log is a lie in the record that nobody can spot later.
 uv run --no-project scripts/handoff.py test
 ```
 
-Run it after any change to `scripts/`. [.handoff/CONTRIBUTING.md](.handoff/CONTRIBUTING.md) has the
-full working agreement; two rules matter most:
+Run it after any change to `scripts/`. Two rules matter most:
 
 - **A new test must fail against the old code.** Copy the tree, revert the fix
   in the copy, run the suite there. A test that passes either way documents
