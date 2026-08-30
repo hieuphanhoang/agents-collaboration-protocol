@@ -279,6 +279,9 @@ def t_migrate_legacy_storage():
         check("migrate rewrites index links",
               "threads/AGENT-001-legacy-layout.md" in body and "chat_logs/" not in body,
               body)
+        check("migrate leaves history prose unchanged",
+              "opened from the old chat_logs path" in body,
+              body)
         proto = meta(d, "PROTOCOL.md").read_text(encoding="utf-8")
         contrib = meta(d, "CONTRIBUTING.md").read_text(encoding="utf-8")
         check("migrate rewrites state docs",

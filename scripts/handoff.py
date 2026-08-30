@@ -169,6 +169,13 @@ def storage_name_replacements(text):
                 .replace(LEGACY_THREADS_NAME, THREADS_NAME))
 
 
+def storage_link_target_replacements(text):
+    text = re.sub(r"(\]\([^)\s]*?)" + re.escape(LEGACY_THREADS_NAME) + r"(?=/|\))",
+                  r"\1" + THREADS_NAME, text)
+    return re.sub(r"(\]\([^)\s]*?)" + re.escape(LEGACY_INDEX_FILE) + r"(?=[)#])",
+                  r"\1" + INDEX_FILE, text)
+
+
 def legacy_storage_pairs(root, state):
     return [
         (legacy_threads_dir(root, state), threads_dir(root, state),
@@ -526,7 +533,10 @@ def cmd_migrate(a):
         if not p.exists():
             continue
         old = p.read_text(encoding="utf-8")
-        new = storage_name_replacements(old)
+        if name == INDEX_FILE:
+            new = storage_link_target_replacements(old)
+        else:
+            new = storage_name_replacements(old)
         if new != old:
             atomic_write(p, new)
 
