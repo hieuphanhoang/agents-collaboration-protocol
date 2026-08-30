@@ -402,7 +402,7 @@ def t_init_inside_skill_skips_installed_copy():
     source = HERE.parent
     d = pathlib.Path(tempfile.mkdtemp(prefix="handoff-skill-"))
     try:
-        skill = d / "multi-agent-collaboration-protocol"
+        skill = d / "agents-collaboration-protocol"
         skill.mkdir()
         for name in ("SKILL.md", "README.md"):
             shutil.copy2(source / name, skill / name)
@@ -1212,7 +1212,7 @@ no From->To header, bogus status, implausible stamp
 
 
 def run_all():
-    print("multi-agent-collaboration-protocol regression suite\n")
+    print("agents-collaboration-protocol regression suite\n")
     for fn in (t_init, t_init_ships_the_tool,
                t_init_registers_existing_instruction_files_once,
                t_init_can_use_custom_state_dir, t_migrate_legacy_storage,

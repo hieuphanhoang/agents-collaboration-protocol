@@ -1,4 +1,4 @@
-# Multi-Agent Collaboration Protocol
+# Agents Collaboration Protocol
 
 **Make Claude Code, Codex, Cursor, opencode, Qwen and chat-only models
 collaborate on the same repository - without overwriting each other or
@@ -58,7 +58,7 @@ repo has `SKILL.md` at its root with no `skills/` subfolder, so the whole
 repo installs as one skill:
 
 ```bash
-npx skills add hieuphanhoang/multi-agent-collaboration-protocol
+npx skills add hieuphanhoang/agents-collaboration-protocol
 ```
 
 Project-local by default; add `-g` to install to your home directory
@@ -70,8 +70,8 @@ actually works end to end before writing it down. See the skills CLI's own
 Or clone it directly and point your agent harness at it yourself:
 
 ```bash
-git clone https://github.com/hieuphanhoang/multi-agent-collaboration-protocol \
-  ~/.agents/skills/multi-agent-collaboration-protocol
+git clone https://github.com/hieuphanhoang/agents-collaboration-protocol \
+  ~/.agents/skills/agents-collaboration-protocol
 ```
 
 Either way, the skill is self-contained and stdlib-only. No dependencies,

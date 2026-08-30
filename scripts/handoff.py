@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-multi-agent-collaboration-protocol - file-based collaboration protocol for
+agents-collaboration-protocol - file-based collaboration protocol for
 multi-provider agent teams.
 
 Every command reads the real system clock, so timestamps cannot be invented.

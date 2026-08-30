@@ -1,9 +1,9 @@
 ---
-name: multi-agent-collaboration-protocol
+name: agents-collaboration-protocol
 description: Multi-agent collaboration and coordination for AI coding agents that do not share a session, memory, or runtime. Set up and run a file-based protocol so several agents from different providers (Claude Code, ChatGPT/Codex, opencode, Qwen, Cursor, Grok, and chat-only models) can work the same repository together without overwriting each other or duplicating work. Use this whenever the user mentions working with another AI model on a project, agent teamwork or collaboration, handing work off between agents, adding a member to a project, splitting a codebase between agents, a shared log between agents, or asks how two AIs should coordinate — even if they never say "protocol" or "handoff". Also use it when deciding which agent should own or do what, and when a repo already has .handoff/INDEX.md and .handoff/threads/ and a thread needs writing, answering, or the index resyncing, and when onboarding a new agent to an existing multi-agent project.
 ---
 
-# Multi-Agent Collaboration Protocol
+# Agents Collaboration Protocol
 
 Multiple agents on one repo fail in a specific way: they cannot see each other.
 No shared conversation, no shared memory, no way to ask a quick question. Left
