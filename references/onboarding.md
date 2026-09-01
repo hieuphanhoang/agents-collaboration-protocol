@@ -151,7 +151,8 @@ paste, only the open threads and the reply format.
 ## 4 - Removing a member
 
 Do not delete their threads. They are the record of why things are the way they
-are, and deleting them turns settled decisions back into mysteries.
+are, and deleting them turns settled decisions back into mysteries. This is the
+roster-change case of PROTOCOL.md section 13.
 
 Instead:
 

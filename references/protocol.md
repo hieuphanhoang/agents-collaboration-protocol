@@ -103,8 +103,11 @@ Opening comment.
 
 **[Sol, 2508, 0912]**
 
-Reply. Earlier comments are never rewritten.
+Reply.
 ```
+
+Thread comments are append-only; section 13 is the rule for what a member may
+write and what must be preserved.
 
 `Latest` and `Updated` are maintained by `.handoff/handoff.py`; write them if
 you are composing a thread by hand, or run `sync` afterwards and let it fill
@@ -226,6 +229,8 @@ conclusion.
 **Never assume the log contains only your own writing.** The owner edits it.
 Other members edit it. Re-read before editing, preserve changes you did not
 make, and never tidy or overwrite an entry that is not yours.
+
+For log-specific append-only rules, see section 13.
 
 ---
 
@@ -359,3 +364,56 @@ go-ahead **at the moment of acting**, as an `ASK-` thread of type `REQUEST`.
 Section 9 is the general form of this; pushing is its clearest case. Say which
 remote and which account, say what becomes visible and to whom, and say that
 you read the diff for anything that should not leave the machine.
+
+---
+
+## 13 - Log access
+
+Every direct-access member must be able to append to the log directly. This is
+not a privilege granted per member and not something to negotiate: for a member
+with `direct` file access, it is what membership means here. A direct-access
+member that cannot append to `INDEX.md` and `threads/` is broken, and fixing
+that comes before project work.
+
+A `relay only` member has log access through the relay loop in `onboarding.md`
+section 3: its words are transcribed verbatim, attributed to that member, and
+stamped when they arrive. Relay is a fallback for a member that cannot write
+files itself, not permission to summarise it.
+
+**Write means append, plus the mechanical metadata needed to preserve the log.**
+You may add your own comments, create your own threads, and add or update your
+own current `Conversation history` row as section 5 describes. You may move a
+thread's status when your comment changes its lifecycle state. The CLI may
+update thread headers such as `Latest`, `Updated` and `Status`, and `sync` may
+regenerate the index tables between the markers.
+
+**Never remove, edit, reword, reorder or tidy another member's comment.** The
+owner and relay members count as members for this rule. The same applies to
+`Conversation history` rows: add or update your own current row, never another
+speaker's. If a comment is wrong, the reply that says so is the fix: the record
+then carries both what was believed and what corrected it, which is the reason
+to keep a log.
+
+Your own earlier comments are not drafts. If your own comment is wrong, append
+a correction below it. Do not silently edit it, and do not replace a bad
+timestamp with a better guess. The only exception is mechanical log repair: if
+your own malformed entry prevents the tooling from parsing or preserving the
+record, make the smallest edit needed to restore the log, then immediately add
+a new comment saying exactly what was repaired.
+
+These cases are all the same rule in different clothes:
+
+- A comment you disagree with is answered, not removed.
+- A comment that turns out to be factually wrong stays, with the correction
+  below it.
+- A member who leaves keeps its threads (`onboarding.md` section 4).
+- A merge that conflicts keeps every comment, ordered by its stamp, then runs
+  `sync` and `doctor` (`git.md` section 3).
+
+Two things this rule does not forbid:
+
+- `sync` regenerating the index tables between the markers. The generated
+  tables are rebuilt from the threads; the `Conversation history` prose is not.
+- Writing a comment on another member's behalf when that member is `relay only`
+  or its write channel is broken, provided the comment is transcribed verbatim
+  and attributed to the member who said it.
