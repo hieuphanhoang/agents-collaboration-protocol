@@ -341,6 +341,13 @@ def table_cells(line):
     return [roster_value(c) for c in line.strip().strip("|").split("|")]
 
 
+def invocation_mode_line_value(line):
+    """Read the hand-edited invocation mode line in common markdown shapes."""
+    cleaned = re.sub(r"^\s*-\s*", "", line).replace("**", "").strip()
+    m = re.match(r"^Invocation\s+mode\s*:\s*(.*?)\s*$", cleaned, re.I)
+    return roster_value(m.group(1)) if m else None
+
+
 def roster_member_table(root, state):
     path = project_file(root, "ROSTER.md", state)
     if not path.exists():
@@ -376,11 +383,9 @@ def roster_invocation_mode(root, state):
         return {"status": "no-roster", "value": None, "raw": ""}
     body = fold(path.read_text(encoding="utf-8"))
     for line in body.splitlines():
-        m = re.match(r"^\s*" + re.escape(INVOCATION_MODE_LABEL) + r"\s*(.*?)\s*$",
-                     line, re.I)
-        if not m:
+        raw = invocation_mode_line_value(line)
+        if raw is None:
             continue
-        raw = roster_value(m.group(1))
         value = raw.lower()
         if value in INVOCATION_MODES:
             return {"status": "valid", "value": value, "raw": raw}
@@ -495,7 +500,7 @@ def agents_section(cli_path, state):
 Several agents work this repository at once. Before writing anything:
 
 1. Read `{state}/PROTOCOL.md` - how the shared log works and what you may edit.
-2. Read `{state}/ROSTER.md` - who owns which directories. Never edit a
+2. Read `{state}/ROSTER.md` - ownership and invocation mode. Never edit a
    directory you do not own; open a thread or propose a contract change instead.
 3. Write to the log with `{cli_path}`, not by hand:
    `python {cli_path} reply AGENT-004 --frm <you> --body-file msg.md`
@@ -512,6 +517,11 @@ INIT_SOURCES = [("references/protocol.md", "PROTOCOL.md"),
                 ("assets/ROSTER.template.md", "ROSTER.md"),
                 ("assets/CONTRIBUTING.template.md", "CONTRIBUTING.md")]
 TEST_SUITE = "scripts/test_handoff.py"
+
+
+def print_history_reminder(state):
+    print(f"Reminder: add your Conversation history row to {state}/{INDEX_FILE}, "
+          f"then run {state}/handoff.py sync.")
 
 
 def protocol_pointer():
@@ -684,6 +694,7 @@ def cmd_new(a):
         print("recommendation, or that a decision you made needs the owner's")
         print("go-ahead to act. If neither is true yet, make it an AGENT- thread.")
     cmd_sync(a)
+    print_history_reminder(state)
 
 
 def cmd_reply(a):
@@ -717,6 +728,7 @@ def cmd_reply(a):
     atomic_write(t2["path"], refresh_meta(t2))
     print(f"appended to {t['path'].name}  [{a.frm}, {ddmm}, {hhmm}]")
     cmd_sync(a)
+    print_history_reminder(state)
 
 
 def promoted_path(root, value):
@@ -1054,7 +1066,7 @@ def invocation_notes(root, state):
             continue
         invoked_by = row.get(INVOCATION_COLUMN, "")
         norm = roster_value(invoked_by).lower()
-        if norm == "owner":
+        if norm in {"owner", "-"}:
             continue
         if (is_placeholder_value(invoked_by, INVOCATION_COMMAND_PLACEHOLDERS)
                 and (mode_value in {"orchestrated", "mixed"}

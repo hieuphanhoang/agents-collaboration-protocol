@@ -164,6 +164,8 @@ def t_init_ships_the_tool():
         check("AGENTS.md names the in-repo tool", ".handoff/handoff.py" in ag2)
         check("AGENTS.md tells members to pass their own name to summary",
               "summary <you>" in ag2)
+        check("AGENTS.md sends members to ROSTER.md for invocation mode",
+              "invocation mode" in ag2.lower(), ag2)
         run(d, "init")
         ag3 = (d / "AGENTS.md").read_text(encoding="utf-8")
         check("re-init does not duplicate the pointer section",
@@ -461,6 +463,26 @@ def t_body_input():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def t_history_row_reminder():
+    """The nudge has to fire where the manual history row is usually missed."""
+    d = fresh()
+    try:
+        reminder = ("Reminder: add your Conversation history row to "
+                    ".handoff/INDEX.md, then run .handoff/handoff.py sync.")
+
+        out = run(d, "new", "History row", "--frm", "Opus", "--to", "Codex",
+                  "--body", "x").stdout
+        check("new reminds about the Conversation history row",
+              reminder in out, out)
+
+        out = run(d, "reply", "AGENT-001", "--frm", "Codex",
+                  "--body", "done").stdout
+        check("reply reminds about the Conversation history row",
+              reminder in out, out)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def t_summary():
     d = fresh()
     try:
@@ -510,6 +532,34 @@ Invocation mode: mixed
         out = run(d, "summary", "Codex").stdout
         check("summary prints the roster invocation mode",
               "Invocation mode: mixed" in out, out)
+
+        for label, mode_line, expected in [
+                ("bold label with inner colon",
+                 "**Invocation mode:** Orchestrated", "orchestrated"),
+                ("bold label with outer colon",
+                 "**Invocation mode**: mixed", "mixed"),
+                ("list marker with loose spacing and case",
+                 " -  Invocation Mode :  INDEPENDENT  ", "independent")]:
+            meta(d, "ROSTER.md").write_text(f"""# ROSTER
+
+{mode_line}
+
+## Members
+
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
+| Owner | human | direct | owner | final say | - |
+| Opus | Claude | direct | owner | docs | AGENTS.md |
+| Codex | GPT | direct | codex exec | scripts | AGENTS.md |
+""", encoding="utf-8")
+            out = run(d, "summary", "Codex").stdout
+            check(f"summary accepts {label}",
+                  f"Invocation mode: {expected}" in out, out)
+            r = run(d, "doctor")
+            check(f"doctor accepts {label}",
+                  "Invocation mode missing" not in r.stdout
+                  and "Invocation mode still unset" not in r.stdout
+                  and "is not one of orchestrated" not in r.stdout, r.stdout)
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -957,6 +1007,22 @@ Invocation mode: mixed
 
 | Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
 |---|---|---|---|---|---|
+| Hiru | human | direct | - | final say | - |
+| Opus | Claude | direct | owner | docs | AGENTS.md |
+| Codex | GPT | direct | codex exec | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("dash in Invoked by is not-applicable, not a missing command",
+              "directly callable" not in r.stdout, r.stdout)
+
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: mixed
+
+## Members
+
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
 | Owner | human | direct | owner | final say | - |
 | Opus | Claude | direct | owner | docs | AGENTS.md |
 | Codex | GPT | direct | codex exec | scripts | AGENTS.md |
@@ -1355,6 +1421,7 @@ def run_all():
                t_migrate_refuses_split_storage, t_state_dir_rejects_unsafe_paths,
                t_init_ignores_vendor_directories, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
+               t_history_row_reminder,
                t_summary, t_invocation_mode_summary, t_waiting_alias,
                t_close_missing_promotion_refuses_without_write,
                t_close_stale_promotion_refuses_without_write,
