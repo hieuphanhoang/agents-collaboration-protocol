@@ -89,7 +89,7 @@ Day to day, from inside the target repo:
 
 ```bash
 python .handoff/handoff.py waiting Opus                  # what is waiting on me
-python .handoff/handoff.py summary                       # every live thread, not just mine
+python .handoff/handoff.py summary                       # every live thread, plus the invocation mode
 python .handoff/handoff.py new "Cache key" --frm Opus --to Codex \
        --type QUESTION --body-file question.md
 python .handoff/handoff.py reply AGENT-001 --frm Codex \

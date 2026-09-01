@@ -103,7 +103,7 @@ call nobody.
 | Task | Command |
 |---|---|
 | See what is waiting on you | `handoff.py waiting Sol` |
-| See every live thread, not just yours | `handoff.py summary` |
+| See every live thread, and the invocation mode | `handoff.py summary` |
 | Open a thread to another member | `handoff.py new "title" --frm Opus --to Sol --type QUESTION --body "..."` |
 | Escalate to the owner | same, plus `--ask` |
 | Reply in a thread | `handoff.py reply AGENT-004 --frm Sol --body-file reply.md --status answered` |
@@ -301,9 +301,10 @@ it is probably an owner question.
   shell-hostile comment bodies, what `init` installs and what it refuses to do
   from the copy installed in a repo, relay stamping, ignored handoff state,
   custom `--state-dir` names and their rejection cases, roster-participant
-  drift, stale Conversation history, `close`'s promotion checks, and index
-  completeness. Run it after
-  changing the script; these are the cases that have actually bitten.
+  drift, stale Conversation history, `close`'s promotion checks, the
+  hand-edited markdown forms an invocation-mode line arrives in, and index
+  completeness. Run it after changing the script; these are the cases that have
+  actually bitten.
 - `assets/` — templates the script writes, including the `CONTRIBUTING.md`
   every project gets for its own working conventions. Edit these to change what
   `init` produces.

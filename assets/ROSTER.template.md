@@ -21,6 +21,11 @@ The owner starts the first member in all three modes, so that alone does not
 make a project `mixed`. The mode is about whether one *member* may start
 another.
 
+Keep the line above in its plain form when you fill it in - that is the form the
+tooling writes and the easiest to read. Common hand-edited variants (bold, or a
+list dash) are read correctly too, so a roster edited by hand does not silently
+report `unset`.
+
 **Ask the owner this at setup; never infer it.** That another agent's CLI is
 installed says nothing about whether the owner wants it spent. Until the line
 above is answered it reads as `independent`, and nobody calls anybody.
