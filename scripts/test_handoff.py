@@ -478,6 +478,42 @@ def t_summary():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def t_invocation_mode_summary():
+    d = fresh()
+    try:
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+## Members
+
+| Name | Model / harness | File access | Owns | Reads instructions from |
+|---|---|---|---|---|
+| Owner | human | direct | final say | - |
+| Opus | Claude | direct | docs | AGENTS.md |
+| Codex | GPT | direct | scripts | AGENTS.md |
+""", encoding="utf-8")
+        out = run(d, "summary", "Codex").stdout
+        check("summary surfaces an unset invocation mode",
+              "Invocation mode: unset" in out, out)
+
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: mixed
+
+## Members
+
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
+| Owner | human | direct | owner | final say | - |
+| Opus | Claude | direct | owner | docs | AGENTS.md |
+| Codex | GPT | direct | codex exec | scripts | AGENTS.md |
+""", encoding="utf-8")
+        out = run(d, "summary", "Codex").stdout
+        check("summary prints the roster invocation mode",
+              "Invocation mode: mixed" in out, out)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def t_waiting_alias():
     d = fresh()
     try:
@@ -831,6 +867,103 @@ def t_doctor_notes_unknown_roster_participants():
         check("doctor also checks comment authors against roster",
               "Sol" in r.stdout and "not listed in ROSTER.md" in r.stdout,
               r.stdout)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_doctor_notes_invocation_mode_status():
+    """Invocation mode is owner intent, so unset values need visible notes."""
+    d = fresh()
+    try:
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+## Members
+
+| Name | Model / harness | File access | Owns | Reads instructions from |
+|---|---|---|---|---|
+| Owner | human | direct | final say | - |
+| Opus | Claude | direct | docs | AGENTS.md |
+| Codex | GPT | direct | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("missing invocation mode is only a note", r.returncode == 0, r.stdout)
+        check("doctor notes missing invocation mode",
+              "Invocation mode missing" in r.stdout, r.stdout)
+
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: TODO
+
+## Members
+
+| Name | Model / harness | File access | Owns | Reads instructions from |
+|---|---|---|---|---|
+| Owner | human | direct | final say | - |
+| Opus | Claude | direct | docs | AGENTS.md |
+| Codex | GPT | direct | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("doctor notes placeholder invocation mode",
+              "Invocation mode still unset" in r.stdout, r.stdout)
+
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: independent
+
+## Members
+
+| Name | Model / harness | File access | Owns | Reads instructions from |
+|---|---|---|---|---|
+| Owner | human | direct | final say | - |
+| Opus | Claude | direct | docs | AGENTS.md |
+| Codex | GPT | direct | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("valid invocation mode clears mode notes",
+              "Invocation mode missing" not in r.stdout
+              and "Invocation mode still unset" not in r.stdout, r.stdout)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_doctor_notes_callable_member_without_command():
+    """A callable member needs a literal command, not a placeholder."""
+    d = fresh()
+    try:
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: mixed
+
+## Members
+
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
+| Owner | human | direct | owner | final say | - |
+| Opus | Claude | direct | owner | docs | AGENTS.md |
+| Codex | GPT | direct | <command> | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("callable member without command is only a note",
+              r.returncode == 0, r.stdout)
+        check("doctor notes callable member without command",
+              "Codex" in r.stdout and "directly callable" in r.stdout
+              and "no command" in r.stdout, r.stdout)
+
+        meta(d, "ROSTER.md").write_text("""# ROSTER
+
+Invocation mode: mixed
+
+## Members
+
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
+| Owner | human | direct | owner | final say | - |
+| Opus | Claude | direct | owner | docs | AGENTS.md |
+| Codex | GPT | direct | codex exec | scripts | AGENTS.md |
+""", encoding="utf-8")
+        r = run(d, "doctor")
+        check("callable member with command clears command note",
+              "directly callable" not in r.stdout, r.stdout)
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -1222,7 +1355,7 @@ def run_all():
                t_migrate_refuses_split_storage, t_state_dir_rejects_unsafe_paths,
                t_init_ignores_vendor_directories, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
-               t_summary, t_waiting_alias,
+               t_summary, t_invocation_mode_summary, t_waiting_alias,
                t_close_missing_promotion_refuses_without_write,
                t_close_stale_promotion_refuses_without_write,
                t_close_succeeds_with_fresh_promotion,
@@ -1234,6 +1367,8 @@ def run_all():
                t_close_does_not_replace_reply_closed,
                t_history_nudge, t_history_stale_across_year_boundary,
                t_doctor_notes_ignored_log, t_doctor_notes_unknown_roster_participants,
+               t_doctor_notes_invocation_mode_status,
+               t_doctor_notes_callable_member_without_command,
                t_doctor_skips_unfilled_roster_template,
                t_roundtrip, t_unicode_legacy, t_year_boundary,
                t_sort_across_years, t_external_edit, t_concurrent,

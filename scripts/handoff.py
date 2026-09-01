@@ -50,6 +50,16 @@ STATUSES = {"open", "answered", "closed", "withdrawn", "superseded", "blocked"}
 LIVE = {"open", "answered", "blocked"}
 TYPES = {"STATUS", "QUESTION", "REQUEST", "ANSWER", "DECISION", "BLOCKER", "ACK"}
 REQUIRED_HEADERS = {"From -> To", "Type", "Status", "Time"}
+INVOCATION_MODES = {"orchestrated", "independent", "mixed"}
+INVOCATION_MODE_LABEL = "Invocation mode:"
+INVOCATION_COLUMN = "Invoked by"
+INVOCATION_MODE_PLACEHOLDERS = {"", "-", "todo", "tbd", "unset",
+                                "<mode>", "<invocation mode>"}
+INVOCATION_COMMAND_PLACEHOLDERS = {"", "-", "todo", "tbd", "unset",
+                                   "<command>", "<literal command>",
+                                   "<command to run>", "<owner|command>",
+                                   "<owner or command>", "command", "direct",
+                                   "directly callable"}
 DEFAULT_STATE_DIR = ".handoff"
 INDEX_FILE = "INDEX.md"
 THREADS_NAME = "threads"
@@ -298,6 +308,95 @@ def add_body_args(parser):
                                             "(no shell quoting to get wrong)")
     parser.add_argument("--body-stdin", action="store_true",
                         help="read the comment from stdin")
+
+
+def roster_value(text):
+    """Strip simple markdown wrappers from roster metadata and table cells."""
+    text = text.strip()
+    changed = True
+    while changed:
+        changed = False
+        for mark in ("`", "**"):
+            if (text.startswith(mark) and text.endswith(mark)
+                    and len(text) >= len(mark) * 2):
+                text = text[len(mark):-len(mark)].strip()
+                changed = True
+    return text
+
+
+def is_placeholder_value(text, placeholders):
+    value = roster_value(text)
+    norm = value.lower()
+    return (not value or norm in placeholders or norm.startswith("todo")
+            or (value.startswith("<") and value.endswith(">")))
+
+
+def real_roster_name(name):
+    name = roster_value(name)
+    return (bool(name) and name != "Name" and bool(set(name) - {"-", ":"})
+            and not (name.startswith("<") and name.endswith(">")))
+
+
+def table_cells(line):
+    return [roster_value(c) for c in line.strip().strip("|").split("|")]
+
+
+def roster_member_table(root, state):
+    path = project_file(root, "ROSTER.md", state)
+    if not path.exists():
+        return None
+    body = fold(path.read_text(encoding="utf-8"))
+    m = re.search(r"##\s*Members(.*?)(?=\n##\s|\Z)", body, re.S)
+    if not m:
+        return [], []
+    lines = [line for line in m.group(1).splitlines()
+             if line.lstrip().startswith("|")]
+    headers, rows = None, []
+    for i, line in enumerate(lines):
+        cells = table_cells(line)
+        if cells and cells[0].lower() == "name":
+            headers = cells
+            rest = lines[i + 1:]
+            break
+    if headers is None:
+        return [], []
+    for line in rest:
+        cells = table_cells(line)
+        if not cells or all(set(c) <= {"-", ":"} for c in cells):
+            continue
+        if len(cells) < len(headers):
+            cells += [""] * (len(headers) - len(cells))
+        rows.append(dict(zip(headers, cells)))
+    return headers, rows
+
+
+def roster_invocation_mode(root, state):
+    path = project_file(root, "ROSTER.md", state)
+    if not path.exists():
+        return {"status": "no-roster", "value": None, "raw": ""}
+    body = fold(path.read_text(encoding="utf-8"))
+    for line in body.splitlines():
+        m = re.match(r"^\s*" + re.escape(INVOCATION_MODE_LABEL) + r"\s*(.*?)\s*$",
+                     line, re.I)
+        if not m:
+            continue
+        raw = roster_value(m.group(1))
+        value = raw.lower()
+        if value in INVOCATION_MODES:
+            return {"status": "valid", "value": value, "raw": raw}
+        if is_placeholder_value(raw, INVOCATION_MODE_PLACEHOLDERS):
+            return {"status": "placeholder", "value": None, "raw": raw}
+        return {"status": "invalid", "value": value, "raw": raw}
+    return {"status": "missing", "value": None, "raw": ""}
+
+
+def invocation_mode_display(root, state):
+    mode = roster_invocation_mode(root, state)
+    if mode["status"] == "valid":
+        return mode["value"]
+    if mode["status"] == "invalid":
+        return f"invalid ({mode['raw']})"
+    return "unset"
 
 
 def owes_reply(t):
@@ -767,7 +866,8 @@ def cmd_summary(a):
         tail = f"  waiting on {who}" if who else ""
         return f"  {t['id']}  {t['title'][:46]:<46} {t['status']:<9} {when}{tail}"
 
-    print(f"{len(ts)} threads, {len(live)} live\n")
+    print(f"{len(ts)} threads, {len(live)} live")
+    print(f"Invocation mode: {invocation_mode_display(root, state)}\n")
     print(f"AWAITING THE OWNER ({len(asks)})")
     print("\n".join(line(t) for t in asks) if asks else "  nothing waiting on them")
     print(f"\nBETWEEN MEMBERS ({len(agents)})")
@@ -905,26 +1005,63 @@ def roster_names(root, state):
     the roster after surrounding whitespace is trimmed. Aliases belong in a
     future roster contract, not in a guess inside doctor.
     """
-    path = project_file(root, "ROSTER.md", state)
-    if not path.exists():
+    table = roster_member_table(root, state)
+    if table is None:
         return None
-    body = fold(path.read_text(encoding="utf-8"))
-    m = re.search(r"##\s*Members(.*?)(?=\n##\s|\Z)", body, re.S)
-    if not m:
-        return set()
     names = set()
-    for line in m.group(1).splitlines():
-        if not line.startswith("|"):
-            continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if not cells:
-            continue
-        name = cells[0]
-        if (not name or name == "Name" or set(name) <= {"-", ":"}
-                or (name.startswith("<") and name.endswith(">"))):
+    _, rows = table
+    for row in rows:
+        name = row.get("Name", "")
+        if not real_roster_name(name):
             continue
         names.add(name)
     return names
+
+
+def invocation_notes(root, state):
+    path = project_file(root, "ROSTER.md", state)
+    if not path.exists():
+        return []
+    notes = []
+    mode = roster_invocation_mode(root, state)
+    if mode["status"] == "missing":
+        notes.append(f"{state}/ROSTER.md: Invocation mode missing - add "
+                     f"{INVOCATION_MODE_LABEL} independent, "
+                     f"{INVOCATION_MODE_LABEL} orchestrated, or "
+                     f"{INVOCATION_MODE_LABEL} mixed")
+    elif mode["status"] == "placeholder":
+        notes.append(f"{state}/ROSTER.md: Invocation mode still unset - choose "
+                     "orchestrated, independent, or mixed")
+    elif mode["status"] == "invalid":
+        notes.append(f"{state}/ROSTER.md: Invocation mode '{mode['raw']}' is not "
+                     "one of orchestrated, independent, mixed")
+
+    table = roster_member_table(root, state)
+    if table is None:
+        return notes
+    headers, rows = table
+    mode_value = mode["value"] if mode["status"] == "valid" else None
+    if INVOCATION_COLUMN not in headers:
+        if mode_value in {"orchestrated", "mixed"}:
+            notes.append(f"{state}/ROSTER.md: Members table has no "
+                         f"{INVOCATION_COLUMN} column - directly callable "
+                         "members need commands")
+        return notes
+
+    for row in rows:
+        name = row.get("Name", "")
+        if not real_roster_name(name) or name.lower() == "owner":
+            continue
+        invoked_by = row.get(INVOCATION_COLUMN, "")
+        norm = roster_value(invoked_by).lower()
+        if norm == "owner":
+            continue
+        if (is_placeholder_value(invoked_by, INVOCATION_COMMAND_PLACEHOLDERS)
+                and (mode_value in {"orchestrated", "mixed"}
+                     or norm not in {"", "-"})):
+            notes.append(f"{state}/ROSTER.md: member '{name}' is marked directly "
+                         f"callable but has no command in {INVOCATION_COLUMN}")
+    return notes
 
 
 def roster_notes(root, state, ts):
@@ -1002,6 +1139,7 @@ def cmd_doctor(a):
     if found:
         p.append(legacy_migration_message(state, found))
     notes += gitignore_notes(root, state)
+    notes += invocation_notes(root, state)
     notes += roster_notes(root, state, ts)
     seen = {}
     for t in ts:
