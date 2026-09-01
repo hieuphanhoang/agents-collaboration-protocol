@@ -383,9 +383,10 @@ files itself, not permission to summarise it.
 **Write means append, plus the mechanical metadata needed to preserve the log.**
 You may add your own comments, create your own threads, and add or update your
 own current `Conversation history` row as section 5 describes. You may move a
-thread's status when your comment changes its lifecycle state. The CLI may
-update thread headers such as `Latest`, `Updated` and `Status`, and `sync` may
-regenerate the index tables between the markers.
+thread's status when your comment changes its lifecycle state, within the limits
+section 3 sets on who moves it to what. The CLI may update thread headers such
+as `Latest`, `Updated` and `Status`, and `sync` may regenerate the index tables
+between the markers.
 
 **Never remove, edit, reword, reorder or tidy another member's comment.** The
 owner and relay members count as members for this rule. The same applies to
