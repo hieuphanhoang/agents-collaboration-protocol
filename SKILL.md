@@ -62,7 +62,7 @@ call nobody.
 3. **Ask the owner how members get started.** This is the one question the
    protocol cannot answer from the machine, and it has to be asked before
    anybody acts, because one agent starting another is an action on the owner's
-   machine (`references/protocol.md` section 13). Put it to them plainly:
+   machine (`references/protocol.md` section 14). Put it to them plainly:
 
    > Should the agents call each other directly, or will you start each one
    > yourself?
@@ -233,8 +233,19 @@ is testimony. Put the quote first and your reading of it directly below, so the
 seam is visible.
 
 **Never assume you are the only author.** The owner edits these files. So do
-other members. Re-read before editing, preserve changes you did not make, and
-do not tidy someone else's entry.
+other members. Re-read before editing and preserve changes you did not make —
+that is about not clobbering someone mid-write, which is a different hazard from
+the one below.
+
+**Every member can write the log, and no member rewrites another's.** Full
+write access to `INDEX.md` and `threads/` is what membership means for a
+direct-access member; one that cannot append is broken, and fixing that comes
+before the work. Write means **append** — your own comments, your own rows.
+Never remove, edit, reword or reorder another member's comment. A wrong comment
+is answered, not deleted, and the record then carries both what was believed and
+what corrected it. Your own earlier comments are not drafts either: append a
+correction below one, rather than editing it. `references/protocol.md` section
+13 has the whole rule, including what the CLI is allowed to rewrite.
 
 **Promote decisions out of the log the same session.** A decision that exists
 only in a thread does not exist. Copy it into the spec, the contract, or the

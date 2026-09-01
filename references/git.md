@@ -114,6 +114,8 @@ judgement call - it is written on the comments themselves. Order them, then run
 say incompatible things, that is a disagreement to settle in a new comment, not
 by editing history so that one of them was never said.
 
+This is the merge case of PROTOCOL.md section 13.
+
 ### After any merge that touched `<state>/`
 
 ```

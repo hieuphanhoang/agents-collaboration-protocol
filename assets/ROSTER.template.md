@@ -29,7 +29,7 @@ In `orchestrated` or `mixed`, this line is the owner's standing approval to
 start the members marked callable below - and it approves starting them, nothing
 else. **Being called changes who starts a member's turn and nothing else:** a
 called member loads the skill, reads this roster and the protocol, and writes its
-own log entries, exactly as it would if the owner had opened it itself. See `PROTOCOL.md` section 13 for what a caller then owes the log, and for
+own log entries, exactly as it would if the owner had opened it itself. See `PROTOCOL.md` section 14 for what a caller then owes the log, and for
 why a member you started is still a member rather than your subagent.
 
 ---

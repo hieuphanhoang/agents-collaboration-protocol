@@ -150,7 +150,7 @@ member where a wrong answer is expensive, and the team keeps working when one
 provider throttles.
 
 This one gets sharper under an `orchestrated` invocation mode (`.handoff/PROTOCOL.md`
-section 13), where a member can start another member without a human in the way.
+section 14), where a member can start another member without a human in the way.
 A human relaying between tabs is a natural rate limiter; an agent calling an
 agent is not. Before making a member callable, ask what happens if it gets
 called ten times in an hour - and put the throttled or expensive member behind

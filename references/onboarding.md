@@ -26,7 +26,7 @@ everyone else's work. Before anything else, settle with the owner:
   the current profiles and a routing table. Read it before you carve, not after
   the first collision.
 - **Who starts their turn?** Separate question from what they own, and it is the
-  owner's to answer, not yours to infer - see `.handoff/PROTOCOL.md` section 13.
+  owner's to answer, not yours to infer - see `.handoff/PROTOCOL.md` section 14.
   If the project's invocation mode is `orchestrated` or `mixed` and this member
   is to be callable, get the literal command that starts it and write it in the
   roster's `Invoked by` column. If the mode is `independent`, or the owner has
@@ -98,7 +98,7 @@ the repo.
 confuse because both can end with one member writing another's words. A *called*
 member has a CLI and full file access; another member starts it directly under
 an `orchestrated` or `mixed` invocation mode, and it does its own reading and
-writing (`PROTOCOL.md` section 13). A *relay* member has no CLI at all, so
+writing (`PROTOCOL.md` section 14). A *relay* member has no CLI at all, so
 nothing can start it but a person pasting text. What the two share is only the
 last step: when the member cannot write the log itself, whoever can writes for
 it, verbatim and attributed. The rules in this section are that shared step, and
@@ -167,7 +167,8 @@ paste, only the open threads and the reply format.
 ## 4 - Removing a member
 
 Do not delete their threads. They are the record of why things are the way they
-are, and deleting them turns settled decisions back into mysteries.
+are, and deleting them turns settled decisions back into mysteries. This is the
+roster-change case of PROTOCOL.md section 13.
 
 Instead:
 
