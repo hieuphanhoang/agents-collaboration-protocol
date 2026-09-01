@@ -20,6 +20,18 @@ discover your change was broken. Fill in what applies here and delete the rest.
 - Linter or formatter, if one is enforced:
 - Anything slow or manual that still has to happen:
 
+## Calling another member
+
+Only fill this in if the invocation mode in `ROSTER.md` is `orchestrated` or
+`mixed`. The command that starts each member lives in that roster's `Invoked by`
+column and belongs there, not here - one copy, or the two disagree. What belongs
+here is what the cell cannot hold: the environment a call needs to actually
+work, and the failures that are expected rather than flaky.
+
+- Flags, environment variables or sandbox settings a call needs:
+- Paths a called member cannot write, so its caller relays for it:
+- Anything a called member is known to get wrong, that its caller should check:
+
 ## Conventions that have bitten us
 
 One line each, with the reason. A rule whose reason is not written down gets

@@ -20,6 +20,11 @@ Members are listed in `.handoff/ROSTER.md`. The conversation lives in
 An owner is not a tie-breaker for technical arguments. If two members disagree
 about which approach is faster, that is a benchmark, not an escalation.
 
+Roles say who decides. **Who may *start* another member's turn is a separate
+question** - the project's invocation mode, section 13. It is asked once at
+setup and recorded in `ROSTER.md`, because one agent spawning another is an
+action on the owner's machine before it is anything else.
+
 ---
 
 ## 2 - Ownership
@@ -284,6 +289,10 @@ Two things make an approval request easy to answer:
   approve in parts beats one all-or-nothing request, and it stops work blocking
   on permission for something not needed until next month.
 
+**Starting another member is one of these actions**, and it is the one case the
+protocol pre-approves in bulk rather than per call: the invocation mode in
+`ROSTER.md` is that standing approval, and section 13 sets out how narrow it is.
+
 ---
 
 ## 10 - Interoperability
@@ -359,3 +368,172 @@ go-ahead **at the moment of acting**, as an `ASK-` thread of type `REQUEST`.
 Section 9 is the general form of this; pushing is its clearest case. Say which
 remote and which account, say what becomes visible and to whom, and say that
 you read the diff for anything that should not leave the machine.
+
+---
+
+## 13 - Invocation
+
+Section 2 says who may *write* where. This section says who may *start* a
+member's turn - a different question, and one the protocol assumed an answer to
+for a long time without ever asking it.
+
+**Every project picks one of three modes, and records it in `ROSTER.md`:**
+
+| Mode | Who starts a member's turn |
+|---|---|
+| `independent` | The owner starts every member. Members never invoke each other; they coordinate only through this log. |
+| `orchestrated` | A member with a terminal may invoke another member's CLI itself, so members can run in parallel under one driver. |
+| `mixed` | Some members are directly callable, the rest the owner starts. The roster's per-member column says which is which. |
+
+**Somebody always starts the first member, and that somebody is the owner.** That
+is true in all three modes, so it is not what makes a project `mixed`. What the
+mode describes is whether one *member* may start another, and `mixed` is for
+when the answer differs from member to member - the roster's `Invoked by` column
+then says which is which.
+
+`independent` is the shape this protocol was originally written for, and it is
+still the right answer for most projects. `orchestrated` is worth its extra
+rules when the work is genuinely parallel and one member would otherwise sit
+idle waiting for a human to paste something.
+
+**Ask at setup, and never infer.** The mode is a question for the owner at
+install time, alongside the roster itself. It cannot be guessed from the
+machine: the fact that another agent's CLI is installed says nothing about
+whether the owner wants it spent.
+
+### Why this is an approval question, not just a design one
+
+One member starting another member's CLI is an action on the owner's machine -
+section 9. It spends their tokens or their money, it writes files, and it runs
+commands under their account. Nothing about owning a directory grants that.
+
+So the mode line in `ROSTER.md` **is the owner's standing approval** for exactly
+one thing: starting the members it names as callable. Asking it once at setup is
+what makes it unnecessary to open an `ASK-` before every call. That is the whole
+trade, and it only works while the approval stays narrow:
+
+1. **It covers starting a member, and nothing else.** A called member does not
+   inherit its caller's approvals. Whatever it then wants to do that needs the
+   owner - a push, an install, a large download - still needs its own `ASK-`,
+   exactly as if the owner had started it.
+2. **Unset means `independent`.** If the field is missing, or still a template
+   placeholder, nobody calls anybody. Ask the owner rather than reading silence
+   as consent.
+3. **A callable member has its start command written in the roster**, and the
+   caller uses that command. Do not guess a command line, and do not improve on
+   the one written down. A guessed invocation is an unapproved one.
+4. **File access and invocation are different axes.** A `relay only` member has
+   no CLI to call, so it can never be directly invoked whatever the mode says -
+   it stays on the paste loop in `onboarding.md` section 3.
+
+### A called member is still a member
+
+This is the rule that keeps `orchestrated` from quietly turning a team into one
+agent with helpers.
+
+**The invocation mode changes exactly one thing: who starts a member's turn.**
+Everything else about being a member is identical in all three modes. A called
+member loads this skill itself, reads `ROSTER.md` and this protocol itself, and
+writes its own comments and its own index row - exactly as it would if the owner
+had opened it in its own terminal. If the only difference between `independent`
+and `orchestrated` is who typed the first command, the mode is working.
+
+A member you started still owns its directories, still decides technical
+questions jointly with you, and is still free to disagree with you in the
+thread. **Starting a member does not make you its owner or its reviewer.** You
+do not get to overrule its judgement because you spawned the process, and it
+does not owe you agreement because you were the one who called.
+
+It follows that **the task you hand a called member is not a substitute for the
+protocol.** Point it at the skill, the roster and the thread, and let it read
+them. A caller that briefs the callee entirely in its own words has built a
+member whose picture of the project is one member's summary of it, and the
+summary is not visible to anyone reviewing the result.
+
+The reviewer-of-record rule holds unchanged in both directions. Calling a member
+to implement something does not make you its author, so you may be the one who
+reviews what it wrote. Nor does it make you its reviewer by default - your own
+half of the work still needs a member who did not write it. Calling is neither
+authoring nor approving.
+
+### Calling is not agreeing
+
+The caller writes the callee's task. That means the caller can tell the callee
+to skip a step this protocol does not allow either of them to skip, and the step
+that goes first is the discussion.
+
+When a human relays between agents, the round trip is forced: someone has to
+carry the question across and the answer back, and the design gets talked about
+on the way. An agent calling an agent has no such friction. A caller in a hurry
+writes "if you agree with the design, implement your half now rather than
+waiting for another round trip" - which reads as efficiency and is not. It lets
+one member settle, alone, the question the thread was opened to settle between
+two, and it does it in the caller's words rather than the callee's.
+
+**A caller may not waive the discussion on the callee's behalf.** If a thread
+puts open design questions to a member, that member answers them in the thread
+before its code lands. Parallelism is for the work, not for the agreement.
+
+The cost of getting this wrong is not theoretical. The disagreement a skipped
+discussion would have surfaced does not disappear; it turns up later as a defect
+in whichever half was written against a guess, and by then both halves are built
+and one of them has to be unpicked.
+
+### The caller's job is narrow
+
+A caller does four things and stops:
+
+1. **Turns the owner's request into a task prompt.**
+2. **Assigns the task** - read the log, review, discuss, implement - and points
+   the member at the skill, the roster and the thread.
+3. **Waits.**
+4. **Reads the result in the log.**
+
+It does not read the called member's transcript, and it does not treat that
+member's console output as the deliverable. **The log is the interface between
+members; the terminal is not.**
+
+Three things follow, and they are the reason this is a rule rather than a
+preference:
+
+- **Anything that exists only in a transcript is invisible.** Not just to the
+  other members - to the owner, and to whoever reads this thread in six months.
+  A caller working from the transcript is the only person in the project who can
+  see the work, which is the exact condition this protocol exists to remove.
+- **A caller that reads the output starts summarising it.** Once the caller has
+  the full picture from the terminal, writing it into the log feels redundant,
+  and the callee's own words quietly stop arriving. The member is then present
+  in the log only as its caller's account of it.
+- **If it is not in the log, it did not happen.** Section 7 already says this
+  about decisions. Under `orchestrated` it applies to the work itself: a called
+  member's job is not done when its process exits, it is done when its comment
+  is in the thread.
+
+The one legitimate reason to look at a called member's output is **to find out
+why its log write failed.** Diagnosing a broken channel is not the same as using
+it as one. Fix the channel, then read the log.
+
+### What the caller owes the log
+
+**Say in the thread that you made the call.** One line is enough. Otherwise the
+log shows a member speaking with no record of who started it, and a reader six
+months later cannot tell parallel work from a member that happened to wake up.
+
+**A called member writes its own log entries. Check before assuming otherwise.**
+A member you started is in handoff mode like any other: it has the CLI, it has
+the thread, and its comment should arrive in its own words under its own name.
+Do not tell it to hand you a draft instead. The caller composes the callee's
+task, so a caller that assumes the callee cannot write has quietly replaced that
+member's voice with its own summary - and nobody reading the thread later can
+tell that is what happened.
+
+Sandboxes do sometimes have narrower filesystem access than the agent that
+started them, and when a write genuinely fails, the caller relays. That is the
+fallback, not the default, and it is worth re-testing rather than inheriting:
+"the sandbox cannot write there" ages badly, because sandbox accounts are often
+created per run and a restriction recorded against one of them says nothing
+about the next. When you do relay, it is exactly the relay discipline in
+`onboarding.md` section 3, for the same reason: transcribe verbatim, attribute
+the comment to the member that said it and not to yourself, and stamp it when it
+actually lands. A called member's words are no more yours to summarise than the
+owner's are.

@@ -25,6 +25,12 @@ everyone else's work. Before anything else, settle with the owner:
   member's weak spot produces work the others have to redo. `task-fit.md` has
   the current profiles and a routing table. Read it before you carve, not after
   the first collision.
+- **Who starts their turn?** Separate question from what they own, and it is the
+  owner's to answer, not yours to infer - see `.handoff/PROTOCOL.md` section 13.
+  If the project's invocation mode is `orchestrated` or `mixed` and this member
+  is to be callable, get the literal command that starts it and write it in the
+  roster's `Invoked by` column. If the mode is `independent`, or the owner has
+  not said, the cell is `owner`.
 
 Record it in `.handoff/ROSTER.md`, then open an `AGENT-` thread introducing them
 so the existing members learn the new boundary from the log rather than from a
@@ -87,6 +93,16 @@ member never has to guess.
 Some useful models are only a browser tab - Grok and the chat-only frontends are
 the common case. They can still contribute real work; they simply cannot read
 the repo.
+
+**A relay member is not the same as a called member**, and the two are easy to
+confuse because both can end with one member writing another's words. A *called*
+member has a CLI and full file access; another member starts it directly under
+an `orchestrated` or `mixed` invocation mode, and it does its own reading and
+writing (`PROTOCOL.md` section 13). A *relay* member has no CLI at all, so
+nothing can start it but a person pasting text. What the two share is only the
+last step: when the member cannot write the log itself, whoever can writes for
+it, verbatim and attributed. The rules in this section are that shared step, and
+they apply to both.
 
 **Check the harness, not the model, before deciding this.** File access is a
 property of what the model is running inside. Qwen in a browser is a relay

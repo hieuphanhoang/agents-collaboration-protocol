@@ -81,9 +81,9 @@ That writes `.handoff/PROTOCOL.md`, `.handoff/INDEX.md`,
 picks a different name if `.handoff/` doesn't suit a project - pass it on
 every later command too, since only `.handoff/` is looked for automatically.
 
-Then fill in `.handoff/ROSTER.md` - who the members are and **which directories
-each one owns**. Ownership is the load-bearing part; everything else is
-bookkeeping.
+Then fill in `.handoff/ROSTER.md` - who the members are, **which directories
+each one owns**, and **who starts whose turn**. Ownership is the load-bearing
+part; everything else is bookkeeping.
 
 Day to day, from inside the target repo:
 
@@ -105,12 +105,45 @@ into the log is a lie in the record that nobody can spot later.
 
 ---
 
+## Two ways to run a team
+
+The first question this protocol asks the owner, at setup, is how members get
+started. It is recorded on one line in `.handoff/ROSTER.md` and it changes what
+every member is allowed to do.
+
+| Mode | Who starts a member's turn |
+|---|---|
+| `independent` | You open each agent yourself. They coordinate only through the log, and never invoke each other. |
+| `orchestrated` | An agent with a terminal runs another agent's CLI itself, so members work in parallel without you relaying between tabs. |
+| `mixed` | Some members are callable, the rest you start. The roster's `Invoked by` column says which. |
+
+`independent` is the default and the safe answer. `orchestrated` is asked for
+explicitly rather than inferred, because one agent starting another spends your
+tokens and runs commands under your account - an installed CLI is not permission
+to use it. That single line is the standing approval, and it approves starting a
+member and nothing else: whatever the called member then wants to do that needs
+you - a push, an install - still comes back to you as its own request.
+
+The caller's job stays narrow: turn the request into a prompt, assign the task,
+wait, and **read the result in the log** - not in the called agent's terminal
+output. The log is the interface between members; anything that exists only in a
+transcript is invisible to everyone else.
+
+The rule that keeps it honest: **being called changes who starts a member's turn
+and nothing else.** A called agent loads the skill itself, reads the roster and
+the protocol itself, and writes its own entries in the log - exactly as it would
+if you had opened it in its own terminal. It owns its directories, it can
+disagree with the agent that called it, and calling it is not the same as
+reviewing it.
+
+---
+
 ## What gets installed into a target repo
 
 | File | Purpose |
 |---|---|
 | `.handoff/PROTOCOL.md` | How the log works. Every member reads it |
-| `.handoff/ROSTER.md` | Who exists, who owns which directories |
+| `.handoff/ROSTER.md` | Who exists, who owns which directories, and who may start whom |
 | `.handoff/INDEX.md` | The index: awaiting-owner, open threads, conversation history, all messages |
 | `.handoff/threads/` | One file per topic, `AGENT-###` between members, `ASK-###` to the owner |
 | `.handoff/handoff.py` | The CLI, so every member can run it - not just the one whose skill folder holds it |

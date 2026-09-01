@@ -149,6 +149,13 @@ capable it is. Put the cheap member where the loop is tight and the strong
 member where a wrong answer is expensive, and the team keeps working when one
 provider throttles.
 
+This one gets sharper under an `orchestrated` invocation mode (`.handoff/PROTOCOL.md`
+section 13), where a member can start another member without a human in the way.
+A human relaying between tabs is a natural rate limiter; an agent calling an
+agent is not. Before making a member callable, ask what happens if it gets
+called ten times in an hour - and put the throttled or expensive member behind
+`owner` in the roster's `Invoked by` column if the answer is bad.
+
 **Assign against the failure mode, not just the strength.** Every profile above
 has a characteristic way of being wrong. The split is good when each member's
 usual failure lands inside its own territory, where its own tests catch it, and

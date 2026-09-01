@@ -1,6 +1,6 @@
 ---
 name: agents-collaboration-protocol
-description: Multi-agent collaboration and coordination for AI coding agents that do not share a session, memory, or runtime. Set up and run a file-based protocol so several agents from different providers (Claude Code, ChatGPT/Codex, opencode, Qwen, Cursor, Grok, and chat-only models) can work the same repository together without overwriting each other or duplicating work. Use this whenever the user mentions working with another AI model on a project, agent teamwork or collaboration, handing work off between agents, adding a member to a project, splitting a codebase between agents, a shared log between agents, or asks how two AIs should coordinate — even if they never say "protocol" or "handoff". Also use it when deciding which agent should own or do what, and when a repo already has .handoff/INDEX.md and .handoff/threads/ and a thread needs writing, answering, or the index resyncing, and when onboarding a new agent to an existing multi-agent project.
+description: Multi-agent collaboration and coordination for AI coding agents that do not share a session, memory, or runtime. Set up and run a file-based protocol so several agents from different providers (Claude Code, ChatGPT/Codex, opencode, Qwen, Cursor, Grok, and chat-only models) can work the same repository together without overwriting each other or duplicating work. Use this whenever the user mentions working with another AI model on a project, agent teamwork or collaboration, handing work off between agents, adding a member to a project, splitting a codebase between agents, a shared log between agents, or asks how two AIs should coordinate — even if they never say "protocol" or "handoff". Also use it when deciding which agent should own or do what, when deciding whether one agent may call another agent directly or the user starts each one, and when a repo already has .handoff/INDEX.md and .handoff/threads/ and a thread needs writing, answering, or the index resyncing, and when onboarding a new agent to an existing multi-agent project.
 ---
 
 # Agents Collaboration Protocol
@@ -29,6 +29,13 @@ same session.
 
 ## Workflow
 
+**Arriving at a repo that already has a state directory?** Read `ROSTER.md`
+before anything else, and look at its `Invocation mode:` line. It tells you
+whether you may start another member yourself or only write to the log. If the
+line is missing or still a placeholder, ask the owner the question in step 3
+below and record their answer — until then the mode is `independent` and you
+call nobody.
+
 ### Setting up a new project
 
 1. Read `references/protocol.md` — the protocol you are installing.
@@ -52,15 +59,36 @@ same session.
    neither.** A repository with no instruction file may have chosen that, and
    adding one uninvited is the same overreach as editing a directory you do not
    own. `--no-instructions` skips registration entirely.
-3. Fill in `ROSTER.md` in the state directory, with the human interviewing the
+3. **Ask the owner how members get started.** This is the one question the
+   protocol cannot answer from the machine, and it has to be asked before
+   anybody acts, because one agent starting another is an action on the owner's
+   machine (`references/protocol.md` section 13). Put it to them plainly:
+
+   > Should the agents call each other directly, or will you start each one
+   > yourself?
+   >
+   > - **independent** — you open each agent; they coordinate only through the
+   >   log. Safe default, and right for most projects.
+   > - **orchestrated** — an agent with a terminal may run another agent's CLI
+   >   itself, so they work in parallel without you relaying.
+   > - **mixed** — some are callable, the rest you start.
+
+   Record the answer on the `Invocation mode:` line in `ROSTER.md` now; the
+   per-member commands go in alongside the members themselves, in the next step.
+   **Never infer this from what is installed** — that a CLI exists on the machine
+   says nothing about whether the owner wants it spent. Unanswered reads as
+   `independent`.
+
+4. Fill in `ROSTER.md` in the state directory, with the human interviewing the
    user: who the members are, which model each runs on, whether each has
-   filesystem access, and **which directories each one owns**. Ownership is the
-   load-bearing part — vague ownership is how two agents end up editing the same
-   file. Read `references/task-fit.md` before drawing the boundaries: providers
-   differ in what they are reliably good at and in how they characteristically
-   fail, and the split should put each member's usual failure inside its own
-   territory.
-4. **Register once, then leave those files alone.** `AGENTS.md` and `CLAUDE.md`
+   filesystem access, who starts each one's turn (the `Invoked by` column — a
+   literal command for a callable member, `owner` otherwise), and **which
+   directories each one owns**. Ownership is the load-bearing part — vague
+   ownership is how two agents end up editing the same file. Read
+   `references/task-fit.md` before drawing the boundaries: providers differ in
+   what they are reliably good at and in how they characteristically fail, and
+   the split should put each member's usual failure inside its own territory.
+5. **Register once, then leave those files alone.** `AGENTS.md` and `CLAUDE.md`
    are entry points that route a harness into the state directory; they are not
    workspace. Everything the protocol produces afterwards — roster, log,
    threads, working conventions — lives in the state directory. Project-specific
@@ -123,6 +151,44 @@ Three things there are worth knowing even if you never open it:
   not write it; it costs one thread.
 - **Rate limits are a scheduling constraint.** Keep the expensive or throttled
   member off the high-volume path, or the limit arrives mid-refactor.
+
+### Calling another member
+
+Only in `orchestrated` or `mixed` mode, and only a member whose `Invoked by`
+cell names a command. The loop:
+
+1. **Open the thread first.** The called member needs something to read and
+   somewhere to answer. A call with no thread produces work with no record of
+   what was asked.
+2. **Call it with the command from the roster**, not one you composed. The task
+   you give it points at this skill, the roster and the thread and tells it to
+   read them — it is not a substitute for them. Name the directories it owns,
+   and say plainly that it may disagree and write no code if it does.
+3. **It writes its own log entries.** A called member is in handoff mode like
+   any other: it posts its own comment, in its own words, and adds its own
+   Conversation history row. Do not ask it for a draft you will paste. Only if a
+   write genuinely fails do you relay — verbatim, attributed to it, stamped when
+   it lands — and check that claim rather than inheriting it, because sandbox
+   accounts are often created per run.
+4. **Say in the thread that you made the call.** One line. Otherwise nobody can
+   tell later whether that member was working in parallel or happened to wake up.
+5. **Read the result in the log, not in its output.** Your job is to turn the
+   request into a prompt, assign the task, wait, and then read the thread. The
+   called member's transcript is not the deliverable and mining it is how its
+   words stop reaching the log — you end up the only one who can see the work,
+   which is the condition this protocol exists to remove. The one reason to look
+   at its output is to find out why its log write failed.
+
+**Being called changes who starts the turn and nothing else.** A member you
+started loads this skill itself, owns its directories, decides technical
+questions jointly with you, and may tell you that you are wrong. Starting a
+process does not make you its reviewer: if you called a member to implement
+something, someone who did not author it still has to review it.
+
+**And you may not tell it to skip the discussion.** You write its task, so you
+can waive steps that are not yours to waive — the first one to go is always the
+design exchange the thread was opened for. Parallelism is for the work, not for
+the agreement.
 
 ### Bringing in a member with no file access
 

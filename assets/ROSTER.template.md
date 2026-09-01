@@ -5,15 +5,44 @@ Keep it current: a stale roster is how two agents end up editing the same file.
 
 ---
 
+## Invocation mode
+
+Invocation mode: <independent | orchestrated | mixed>
+
+Who starts a member's turn - a different question from who may write where.
+
+| Mode | Who starts a member's turn |
+|---|---|
+| `independent` | The owner starts every member. Members coordinate only through the log. |
+| `orchestrated` | A member with a terminal may invoke another member's CLI itself, so members run in parallel. |
+| `mixed` | Some members are directly callable, the rest the owner starts - the `Invoked by` column says which. |
+
+The owner starts the first member in all three modes, so that alone does not
+make a project `mixed`. The mode is about whether one *member* may start
+another.
+
+**Ask the owner this at setup; never infer it.** That another agent's CLI is
+installed says nothing about whether the owner wants it spent. Until the line
+above is answered it reads as `independent`, and nobody calls anybody.
+
+In `orchestrated` or `mixed`, this line is the owner's standing approval to
+start the members marked callable below - and it approves starting them, nothing
+else. **Being called changes who starts a member's turn and nothing else:** a
+called member loads the skill, reads this roster and the protocol, and writes its
+own log entries, exactly as it would if the owner had opened it itself. See `PROTOCOL.md` section 13 for what a caller then owes the log, and for
+why a member you started is still a member rather than your subagent.
+
+---
+
 ## Members
 
-| Name | Model / harness | File access | Owns | Reads instructions from |
-|---|---|---|---|---|
-| <Owner> | human (Cursor / IDE) | direct | final say on scope, licensing, cost | - |
-| <Name> | Claude Opus / Claude Code | direct | `frontend/`, the contract | `AGENTS.md` |
-| <Name> | GPT / Codex CLI | direct | `ci/`, `tests/` | `AGENTS.md` |
-| <Name> | Qwen3.8 / opencode | direct | `backend/workers/` | `AGENTS.md` |
-| <Name> | Grok (browser) | **relay only** | advisory - no directories | briefing paste |
+| Name | Model / harness | File access | Invoked by | Owns | Reads instructions from |
+|---|---|---|---|---|---|
+| <Owner> | human (Cursor / IDE) | direct | - | final say on scope, licensing, cost | - |
+| <Name> | Claude Opus / Claude Code | direct | owner | `frontend/`, the contract | `AGENTS.md` |
+| <Name> | GPT / Codex CLI | direct | owner | `ci/`, `tests/` | `AGENTS.md` |
+| <Name> | Qwen3.8 / opencode | direct | owner | `backend/workers/` | `AGENTS.md` |
+| <Name> | Grok (browser) | **relay only** | owner | advisory - no directories | briefing paste |
 
 **File access** is either `direct` (the agent can read and write the repo) or
 `relay only` (a human pastes briefings in and answers back out - see
@@ -21,6 +50,12 @@ Keep it current: a stale roster is how two agents end up editing the same file.
 
 It is set by the **harness, not the model**. The same model is a relay member in
 a browser tab and a full member under a CLI that can write files.
+
+**Invoked by** is either `owner`, or the literal command that starts that member
+- `codex exec`, `opencode run`. A member another member may call must have its
+command written here, because the caller uses this cell rather than guessing:
+a guessed invocation is an unapproved one. A `relay only` member is always
+`owner`; there is no CLI to call.
 
 A member with `relay only` access should not own directories. They cannot see
 the code, so they cannot be responsible for it.
