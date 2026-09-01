@@ -432,9 +432,9 @@ Two things this rule does not forbid:
 
 ## 14 - Invocation
 
-Section 2 says who may *write* where. This section says who may *start* a
-member's turn - a different question, and one the protocol assumed an answer to
-for a long time without ever asking it.
+Sections 2 and 13 say who may *write* - to directories, and to the log. This
+section says who may *start* a member's turn - a different question, and one the
+protocol assumed an answer to for a long time without ever asking it.
 
 **Every project picks one of three modes, and records it in `ROSTER.md`:**
 
