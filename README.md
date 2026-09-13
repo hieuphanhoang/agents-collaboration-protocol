@@ -94,6 +94,8 @@ python .handoff/handoff.py new "Cache key" --frm Opus --to Codex \
        --type QUESTION --body-file question.md
 python .handoff/handoff.py reply AGENT-001 --frm Codex \
        --body-stdin --status answered < answer.md
+python .handoff/handoff.py review-temp prepare AGENT-001 # only if review files are needed
+python .handoff/handoff.py review-temp clean AGENT-001   # safe no-op if none were created
 python .handoff/handoff.py sync                          # rebuild the index
 python .handoff/handoff.py doctor                        # check for damage
 python .handoff/handoff.py test                          # the regression suite
@@ -102,6 +104,12 @@ python .handoff/handoff.py test                          # the regression suite
 Pass long or quoted comments as `--body-file` or `--body-stdin`, never as
 `--body "..."`. Shells disagree about quoting, and a comment mangled on its way
 into the log is a lie in the record that nobody can spot later.
+
+Review prompts, JSON output and screenshots are disposable. `review-temp`
+keeps them under the operating system's temporary directory and removes its
+marked workspace after the verdict is recorded. If a tool unexpectedly writes
+into the repository, use `review-temp collect AGENT-001 <file> [...]` for only
+the identified generated files; never sweep all untracked files.
 
 ---
 

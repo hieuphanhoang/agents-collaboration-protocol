@@ -6,7 +6,8 @@ Covers the cases that have actually bitten: legacy Unicode headers, year
 boundaries, an edit landing between a read and its write, who the index says
 owes a reply, impossible timestamps, a status field emptied by hand, init run
 from the copy installed in a repo, instruction-file registration, relay
-stamping, ignored handoff state, and index completeness.
+stamping, optional review artifact cleanup, ignored handoff state, and index
+completeness.
 Stdlib only, no pytest.
 """
 import argparse
@@ -48,6 +49,17 @@ def meta(root, name, state=".handoff"):
 
 def logs(root, state=".handoff"):
     return root / state / "threads"
+
+
+def remove_review_workspace(path):
+    if not path:
+        return
+    shutil.rmtree(path, ignore_errors=True)
+    for parent in (path.parent, path.parent.parent, path.parent.parent.parent):
+        try:
+            parent.rmdir()
+        except OSError:
+            break
 
 
 def write_legacy_state(root, state=".handoff"):
@@ -460,6 +472,102 @@ def t_body_input():
                 "--type", "MUSING", "--body", "x", expect_ok=False)
         check("an unknown thread type is refused", r.returncode != 0, r.stdout + r.stderr)
     finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_review_temp_lifecycle():
+    """Optional review files stay outside the repo and cleanup is idempotent."""
+    d = fresh()
+    workspace = None
+    try:
+        run(d, "new", "Review temporary files", "--frm", "Opus", "--to", "Codex",
+            "--type", "REQUEST", "--body", "Review this branch")
+
+        r = run(d, "review-temp", "clean", "AGENT-001")
+        check("review cleanup is a no-op when no files were created",
+              "no review temp files" in r.stdout, r.stdout)
+
+        r = run(d, "review-temp", "prepare", "AGENT-001")
+        workspace = pathlib.Path(r.stdout.strip())
+        check("review workspace is created", workspace.is_dir(), r.stdout)
+        try:
+            workspace.resolve().relative_to(d.resolve())
+            outside_repo = False
+        except ValueError:
+            outside_repo = True
+        check("review workspace stays outside the repository", outside_repo, workspace)
+        check("review workspace carries a management marker",
+              (workspace / ".agent-handoff-review.json").is_file())
+
+        (d / "review-prompt.md").write_text("prompt", encoding="utf-8")
+        (d / "review-output").mkdir()
+        (d / "review-output" / "result.json").write_text("{}", encoding="utf-8")
+        (d / "screenshot.png").write_bytes(b"png")
+        r = run(d, "review-temp", "collect", "AGENT-001", "review-prompt.md",
+                "review-output/result.json", "screenshot.png")
+        check("collect removes explicit artifacts from the working tree",
+              not (d / "review-prompt.md").exists()
+              and not (d / "review-output" / "result.json").exists()
+              and not (d / "screenshot.png").exists(), r.stdout)
+        check("collect preserves artifact paths in the review workspace",
+              (workspace / "artifacts" / "review-prompt.md").is_file()
+              and (workspace / "artifacts" / "review-output" / "result.json").is_file()
+              and (workspace / "artifacts" / "screenshot.png").is_file(), r.stdout)
+
+        r = run(d, "review-temp", "clean", "AGENT-001")
+        check("review cleanup removes the managed workspace",
+              not workspace.exists() and "removed review temp files" in r.stdout, r.stdout)
+        workspace = None
+        r = run(d, "review-temp", "clean", "AGENT-001")
+        check("review cleanup stays idempotent after removal",
+              "no review temp files" in r.stdout, r.stdout)
+    finally:
+        remove_review_workspace(workspace)
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def t_review_temp_safety():
+    """Cleanup needs our marker, and collection never sweeps broad or unsafe paths."""
+    d = fresh()
+    workspace = None
+    try:
+        (d / "keep.txt").write_text("keep", encoding="utf-8")
+        r = run(d, "review-temp", "collect", "AGENT-999", "keep.txt",
+                expect_ok=False)
+        check("review collection needs an existing thread",
+              r.returncode != 0 and (d / "keep.txt").is_file(), r.stderr)
+
+        run(d, "new", "Safe review cleanup", "--frm", "Opus", "--to", "Codex",
+            "--body", "Review this branch")
+        r = run(d, "review-temp", "collect", "AGENT-001", "keep.txt", "missing.json",
+                expect_ok=False)
+        check("collection preflights every file before moving any",
+              r.returncode != 0 and (d / "keep.txt").is_file(), r.stderr)
+
+        r = run(d, "review-temp", "collect", "AGENT-001", ".handoff/INDEX.md",
+                expect_ok=False)
+        check("review collection refuses handoff metadata",
+              r.returncode != 0 and meta(d, "INDEX.md").is_file(), r.stderr)
+
+        outside = d.parent / f"{d.name}-outside-review-artifact.txt"
+        outside.write_text("outside", encoding="utf-8")
+        try:
+            r = run(d, "review-temp", "collect", "AGENT-001", f"../{outside.name}",
+                    expect_ok=False)
+            check("review collection refuses parent traversal",
+                  r.returncode != 0 and outside.is_file(), r.stderr)
+        finally:
+            outside.unlink(missing_ok=True)
+
+        r = run(d, "review-temp", "prepare", "AGENT-001")
+        workspace = pathlib.Path(r.stdout.strip())
+        (workspace / ".agent-handoff-review.json").unlink()
+        (workspace / "unknown.txt").write_text("do not delete", encoding="utf-8")
+        r = run(d, "review-temp", "clean", "AGENT-001", expect_ok=False)
+        check("review cleanup refuses an unmarked directory",
+              r.returncode != 0 and (workspace / "unknown.txt").is_file(), r.stderr)
+    finally:
+        remove_review_workspace(workspace)
         shutil.rmtree(d, ignore_errors=True)
 
 
@@ -1421,6 +1529,7 @@ def run_all():
                t_migrate_refuses_split_storage, t_state_dir_rejects_unsafe_paths,
                t_init_ignores_vendor_directories, t_init_needs_the_skill_folder,
                t_init_inside_skill_skips_installed_copy, t_body_input,
+               t_review_temp_lifecycle, t_review_temp_safety,
                t_history_row_reminder,
                t_summary, t_invocation_mode_summary, t_waiting_alias,
                t_close_missing_promotion_refuses_without_write,

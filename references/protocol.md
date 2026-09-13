@@ -364,6 +364,16 @@ reviewer-of-record must be a member who did not author the change, and their
 approval or findings belong in an `AGENT-` thread. The branch may merge only
 after that approval is written down.
 
+**Review-tool files are temporary.** A reviewer that needs prompt files, JSON
+output, screenshots or similar working data uses `handoff.py review-temp` to
+keep them in a marked OS temporary directory. If files appear unexpectedly in
+the repository, collect only explicitly identified review outputs - never sweep
+untracked files that may belong to another member or the owner. Run
+`review-temp clean <AGENT-###>` after recording the verdict, including after a
+failed or cancelled review. Cleanup is a no-op when the review created nothing.
+The findings and verdict stay in the thread; the disposable inputs and tool
+outputs do not.
+
 **Members commit; the owner pushes.** A push is outward-facing and effectively
 permanent - once it is on someone else's server it can be cloned, cached,
 indexed and forked before anyone notices a mistake, and deleting it does not

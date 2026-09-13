@@ -108,6 +108,7 @@ call nobody.
 | Escalate to the owner | same, plus `--ask` |
 | Reply in a thread | `handoff.py reply AGENT-004 --frm Sol --body-file reply.md --status answered` |
 | Close a thread once the decision is in the code | `handoff.py close AGENT-004 --frm Sol --promoted-to path/to/changed/file.py` |
+| Contain optional review files | `handoff.py review-temp prepare AGENT-004`; use `collect` if files appeared in the repo; always finish with `clean` |
 | Brief a relay member with no file access | `handoff.py brief Grok --out briefing.txt` (add `--compact` past their first briefing) |
 | Rebuild the index | `handoff.py sync` |
 | Check for damage | `handoff.py doctor` |
@@ -151,6 +152,26 @@ Three things there are worth knowing even if you never open it:
   not write it; it costs one thread.
 - **Rate limits are a scheduling constraint.** Keep the expensive or throttled
   member off the high-volume path, or the limit arrives mid-refactor.
+
+### Temporary review artifacts
+
+Review tools sometimes create prompts, JSON output, screenshots or similar
+files, and sometimes create nothing. These are working data, not project
+artifacts and not evidence: the findings and verdict belong in the review
+thread.
+
+- When a review tool can choose its output directory, run
+  `handoff.py review-temp prepare AGENT-004` and point the tool at the printed
+  OS temporary directory.
+- If files appear unexpectedly in the repository, move only the files you have
+  identified as review output with
+  `handoff.py review-temp collect AGENT-004 <repo-relative-file> [...]`.
+  Never sweep all untracked files; they may belong to the owner or another
+  member.
+- After the verdict is recorded, run
+  `handoff.py review-temp clean AGENT-004`, including after a failed or
+  cancelled review. It removes only a marked directory managed for that repo
+  and thread. If no review workspace was created, cleanup succeeds as a no-op.
 
 ### Calling another member
 

@@ -13,6 +13,7 @@ Stdlib only. Works on Windows, macOS, Linux.
   new     open a thread (AGENT- between members, ASK- to the owner)
   reply   append an attributed comment to a thread
   close   close a thread after promoted files pass existence and recency checks
+  review-temp contain and clean up optional files created during a review
   migrate rename legacy CHATLOG.md/chat_logs storage to INDEX.md/threads
   sync    regenerate the handoff INDEX.md index blocks from threads/
   summary print what is waiting right now, for a member arriving cold
@@ -29,10 +30,13 @@ import argparse
 import datetime
 import fnmatch
 import hashlib
+import json
 import os
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 
 THREAD_FILE = re.compile(r"^(AGENT|ASK)-(\d{3})-(.+)\.md$")
 STAMP = re.compile(r"\*\*\[([^,\]]+), (\d{4}), (\d{4})\]\*\*")
@@ -66,6 +70,7 @@ THREADS_NAME = "threads"
 LEGACY_INDEX_FILE = "CHATLOG.md"
 LEGACY_THREADS_NAME = "chat_logs"
 INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md")
+REVIEW_TEMP_MARKER = ".agent-handoff-review.json"
 
 BLOCKS = {
     "awaiting": ("<!-- handoff:awaiting:start -->", "<!-- handoff:awaiting:end -->"),
@@ -744,6 +749,142 @@ def promoted_path(root, value):
     return root / clean
 
 
+def review_temp_dir(root, state, thread_id):
+    """Return this repo and thread's deterministic workspace under the OS temp dir."""
+    identity = f"{os.path.normcase(str(root))}\0{state}".encode("utf-8")
+    digest_part = hashlib.sha256(identity).hexdigest()[:12]
+    repo_part = re.sub(r"[^a-z0-9._-]+", "-", root.name.lower()).strip("-.")
+    repo_part = (repo_part or "repo")[:40]
+    path = (pathlib.Path(tempfile.gettempdir()) / "agent-handoff" /
+            f"{repo_part}-{digest_part}" / "reviews" / thread_id)
+    try:
+        path.resolve().relative_to(root)
+    except ValueError:
+        return path
+    sys.exit("the system temporary directory resolves inside the repository; "
+             "set the OS temp directory outside --root before using review-temp")
+
+
+def review_temp_marker(root, state, thread_id):
+    return {
+        "managed_by": "agent-handoff",
+        "repo": str(root),
+        "state_dir": state,
+        "thread": thread_id,
+    }
+
+
+def is_linklike(path):
+    is_junction = getattr(path, "is_junction", None)
+    return path.is_symlink() or bool(is_junction and is_junction())
+
+
+def validate_review_temp(path, expected):
+    """Refuse cleanup or reuse unless the exact directory carries our marker."""
+    if not path.is_dir() or is_linklike(path):
+        sys.exit(f"refusing to use unmanaged review temp path: {path}")
+    marker = path / REVIEW_TEMP_MARKER
+    try:
+        actual = json.loads(marker.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        sys.exit(f"refusing to use review temp path without a valid marker: {path}")
+    if actual != expected:
+        sys.exit(f"refusing to use review temp path with a foreign marker: {path}")
+
+
+def ensure_review_temp(path, expected):
+    if path.exists():
+        validate_review_temp(path, expected)
+        return
+    path.mkdir(parents=True)
+    atomic_write(path / REVIEW_TEMP_MARKER,
+                 json.dumps(expected, indent=2, sort_keys=True) + "\n")
+
+
+def review_source_path(root, state, value):
+    """Resolve one explicit review artifact without accepting broad or external paths."""
+    parts = re.split(r"[\\/]+", value)
+    posix = pathlib.PurePosixPath(value)
+    win = pathlib.PureWindowsPath(value)
+    if posix.is_absolute() or win.is_absolute() or win.drive or ".." in parts:
+        sys.exit(f"unsafe review artifact path '{value}' - use a file relative to --root")
+    clean_parts = [p for p in parts if p and p != "."]
+    if not clean_parts:
+        sys.exit(f"unsafe review artifact path '{value}' - use a file relative to --root")
+    rel = pathlib.Path(*clean_parts)
+    protected = {".git", state.split("/")[0].casefold()}
+    if rel.parts[0].casefold() in protected:
+        sys.exit(f"refusing to collect project metadata as a review artifact: {value}")
+    path = root / rel
+    if is_linklike(path):
+        sys.exit(f"refusing to collect a linked review artifact: {value}")
+    if not path.is_file():
+        sys.exit(f"review artifact is not a file: {value}")
+    try:
+        path.resolve().relative_to(root)
+    except ValueError:
+        sys.exit(f"review artifact resolves outside --root: {value}")
+    return path, rel
+
+
+def cmd_review_temp(a):
+    root = pathlib.Path(a.root).resolve()
+    state = state_rel(root, a.state_dir)
+    ensure_no_legacy_storage(root, state)
+    thread_id = a.id.upper()
+    if not re.fullmatch(r"AGENT-\d{3}", thread_id):
+        sys.exit("review-temp needs an AGENT-### review thread id")
+
+    path = review_temp_dir(root, state, thread_id)
+    expected = review_temp_marker(root, state, thread_id)
+
+    if a.action == "clean":
+        if a.paths:
+            sys.exit("review-temp clean does not accept artifact paths")
+        if not path.exists():
+            print(f"no review temp files for {thread_id}")
+            return
+        validate_review_temp(path, expected)
+        try:
+            shutil.rmtree(path)
+        except OSError as e:
+            sys.exit(f"could not remove review temp files for {thread_id}: {e}")
+        for parent in (path.parent, path.parent.parent, path.parent.parent.parent):
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+        print(f"removed review temp files for {thread_id}")
+        return
+
+    if not any(t["id"] == thread_id for t in read_threads(root, state)):
+        sys.exit(f"no thread {thread_id}; open the review thread first")
+
+    if a.action == "prepare":
+        if a.paths:
+            sys.exit("review-temp prepare does not accept artifact paths")
+        ensure_review_temp(path, expected)
+        print(path)
+        return
+
+    if not a.paths:
+        sys.exit("review-temp collect needs at least one repo-relative file")
+    sources = [review_source_path(root, state, value) for value in a.paths]
+    destinations = [(source, path / "artifacts" / rel) for source, rel in sources]
+    collisions = [str(dest.relative_to(path)) for _, dest in destinations if dest.exists()]
+    if collisions:
+        sys.exit("review temp destination already exists:\n  " + "\n  ".join(collisions))
+    ensure_review_temp(path, expected)
+    for source, dest in destinations:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(source), str(dest))
+        except OSError as e:
+            sys.exit(f"could not collect {source.relative_to(root)}: {e}")
+        print(f"collected {source.relative_to(root)} -> {dest}")
+    print(path)
+
+
 def cmd_close(a):
     root = pathlib.Path(a.root).resolve()
     state = state_rel(root, a.state_dir)
@@ -1283,6 +1424,14 @@ def main():
                    help="repo-relative file(s) updated after the thread was created")
     add_body_args(s)
     s.set_defaults(func=cmd_close)
+
+    s = sub.add_parser("review-temp", parents=[common],
+                       help="contain and clean up optional review artifacts")
+    s.add_argument("action", choices=("prepare", "collect", "clean"))
+    s.add_argument("id", help="AGENT-### review thread id")
+    s.add_argument("paths", nargs="*",
+                   help="repo-relative files to move (collect only)")
+    s.set_defaults(func=cmd_review_temp)
 
     s = sub.add_parser("sync", parents=[common], help="regenerate handoff INDEX.md blocks")
     s.set_defaults(func=cmd_sync)

@@ -180,6 +180,39 @@ there is no remote yet, the thread is the pull-request record: review the branch
 locally, merge to `main` only after approval is written there, then ask the
 owner before pushing `main` or creating the public repository.
 
+### Temporary files made by review tools
+
+A review may create a prompt file, JSON output, screenshots or nothing at all.
+Those files are disposable working data. They do not belong in the branch or
+the handoff log; put the findings and verdict in the review thread instead.
+
+If the review tool accepts an output directory, prepare one before starting:
+
+```bash
+python .handoff/handoff.py review-temp prepare AGENT-004
+```
+
+The command prints a marked directory under the operating system's temporary
+directory, isolated by repository and review thread. Point the review tool's
+working output there. If a tool creates files unexpectedly in the repository,
+collect only the known generated files:
+
+```bash
+python .handoff/handoff.py review-temp collect AGENT-004 review-prompt.md result.json screenshot.png
+```
+
+Do not glob or sweep untracked files. Another member or the owner may have made
+them. After the reviewer records the verdict, cleanup is mandatory even if the
+review failed or was cancelled:
+
+```bash
+python .handoff/handoff.py review-temp clean AGENT-004
+```
+
+`clean` removes only the exact directory carrying this repository and thread's
+management marker. It succeeds as a no-op when that review created no temporary
+workspace.
+
 So: **members commit freely, and a push needs the owner's go-ahead at the moment
 of pushing** - an `ASK-` thread of type `REQUEST`, not a permission banked weeks
 earlier. The same applies to opening a pull request, creating a repository, and
